@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   (c) 2009-2016 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
+ * (c) 2009-2020 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
  *
  * QGroundControl is licensed according to the terms in the file
  * COPYING.md in the root of the source code directory.
@@ -18,6 +18,7 @@
 #include <QDebug>
 
 #include "Drivers/src/ubx.h"
+#include "Drivers/src/sbf.h"
 #include "Drivers/src/ashtech.h"
 #include "Drivers/src/base_station.h"
 #include "definitions.h"
@@ -81,6 +82,9 @@ void GPSProvider::run()
         if (_type == GPSType::trimble) {
             gpsDriver = new GPSDriverAshtech(&callbackEntry, this, &_reportGpsPos, _pReportSatInfo);
             baudrate = 115200;
+        } else if (_type == GPSType::septentrio) {
+            gpsDriver = new GPSDriverSBF(&callbackEntry, this, &_reportGpsPos, _pReportSatInfo, 5);
+            baudrate = 0; // auto-configure
         } else {
             gpsDriver = new GPSDriverUBX(GPSDriverUBX::Interface::UART, &callbackEntry, this, &_reportGpsPos, _pReportSatInfo);
             baudrate = 0; // auto-configure
@@ -175,7 +179,7 @@ void GPSProvider::publishGPSSatellite()
 
 void GPSProvider::gotRTCMData(uint8_t* data, size_t len)
 {
-    QByteArray message((char*)data, len);
+    QByteArray message((char*)data, static_cast<int>(len));
     emit RTCMDataUpdate(message);
 }
 

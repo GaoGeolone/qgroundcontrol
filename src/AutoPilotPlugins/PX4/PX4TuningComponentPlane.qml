@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   (c) 2009-2016 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
+ * (c) 2009-2020 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
  *
  * QGroundControl is licensed according to the terms in the file
  * COPYING.md in the root of the source code directory.
@@ -29,20 +29,18 @@ SetupPage {
             width: availableWidth
 
             Component.onCompleted: {
+                // We use QtCharts only on Desktop platforms
                 showAdvanced = !ScreenTools.isMobile
             }
 
             FactPanelController {
                 id:         controller
-                factPanel:  tuningPage.viewPanel
             }
 
             // Standard tuning page
             FactSliderPanel {
                 width:          availableWidth
-                qgcViewPanel:   tuningPage.viewPanel
                 visible:        !advanced
-
                 sliderModel: ListModel {
                     ListElement {
                         title:          qsTr("Cruise throttle")
@@ -54,7 +52,6 @@ SetupPage {
                     }
                 }
             }
-
 
             Loader {
                 anchors.left:       parent.left

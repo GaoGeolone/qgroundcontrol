@@ -23,7 +23,26 @@ Rectangle {
 
     property alias model: checkListRepeater.model
 
-    property bool _passed: false
+    function setResetEnabled(resetEnabled) {
+        resetButton.enabled = resetEnabled
+    }
+
+    property bool _passed:  false
+
+    function _handleGroupPassedChanged(index, passed) {
+        if (passed) {
+            // Collapse current group
+            var group = checkListRepeater.itemAt(index)
+            group._checked = false
+            // Expand next group
+            if (index + 1 < checkListRepeater.count) {
+                group = checkListRepeater.itemAt(index + 1)
+                group.enabled = true
+                group._checked = true
+            }
+        }
+        _passed = passed
+    }
 
     // We delay the updates when a group passes so the user can see all items green for a moment prior to hiding
     Timer {
@@ -32,22 +51,7 @@ Rectangle {
 
         property int index
 
-        onTriggered: {
-            var group = checkListRepeater.itemAt(index)
-            group._checked = false
-            if (index + 1 < checkListRepeater.count) {
-                group = checkListRepeater.itemAt(index + 1)
-                group.enabled = true
-                group._checked = true
-            }
-            for (var i=0; i<checkListRepeater.count; i++) {
-                if (!checkListRepeater.itemAt(i).passed) {
-                    _passed = false
-                    return
-                }
-            }
-            _passed = true
-        }
+        onTriggered: _handleGroupPassedChanged(index, true /* passed */)
     }
 
     Column {
@@ -59,9 +63,13 @@ Rectangle {
         anchors.topMargin:      0.6*ScreenTools.defaultFontPixelWidth
         anchors.leftMargin:     1.5*ScreenTools.defaultFontPixelWidth
 
-        function groupPassedChanged(index) {
-            delayedGroupPassed.index = index
-            delayedGroupPassed.restart()
+        function groupPassedChanged(index, passed) {
+            if (passed) {
+                delayedGroupPassed.index = index
+                delayedGroupPassed.restart()
+            } else {
+                _handleGroupPassedChanged(index, passed)
+            }
         }
 
         // Header/title of checklist
@@ -76,6 +84,7 @@ Rectangle {
                 font.pointSize:         ScreenTools.mediumFontPointSize
             }
             QGCButton {
+                id:                     resetButton
                 width:                  1.2*ScreenTools.defaultFontPixelHeight
                 height:                 1.2*ScreenTools.defaultFontPixelHeight
                 anchors.right:          parent.right

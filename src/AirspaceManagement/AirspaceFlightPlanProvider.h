@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   (c) 2017 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
+ * (c) 2009-2020 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
  *
  * QGroundControl is licensed according to the terms in the file
  * COPYING.md in the root of the source code directory.
@@ -20,6 +20,7 @@
 #include <QObject>
 #include <QDateTime>
 #include <QAbstractListModel>
+#include <QDebug>
 
 class PlanMasterController;
 class AirspaceFlightInfo;
@@ -164,6 +165,7 @@ public:
     ///< Flight Management
     Q_PROPERTY(AirspaceFlightModel* flightList              READ flightList                                     NOTIFY flightListChanged)
     Q_PROPERTY(bool                 loadingFlightList       READ loadingFlightList                              NOTIFY loadingFlightListChanged)
+    Q_PROPERTY(bool                 dirty                   READ dirty                  WRITE setDirty          NOTIFY dirtyChanged)
 
     //-- TODO: This will submit the current flight plan in memory.
     Q_INVOKABLE virtual void    submitFlightPlan            () = 0;
@@ -189,11 +191,13 @@ public:
     virtual QmlObjectListModel* authorizations      () = 0;                     ///< List of AirspaceFlightAuthorization
     virtual AirspaceFlightModel*flightList          () = 0;                     ///< List of AirspaceFlightInfo
     virtual bool                loadingFlightList   () = 0;
+    virtual bool                dirty               () { return _dirty; }
 
     virtual void                setFlightStartTime  (QDateTime start) = 0;
     virtual void                setFlightDuration   (int seconds) = 0;
     virtual void                setFlightStartsNow  (bool now) = 0;
     virtual void                startFlightPlanning (PlanMasterController* planController) = 0;
+    virtual void                setDirty            (bool dirt) { if(_dirty != dirt) { _dirty = dirt; emit dirtyChanged(); }}
 
 signals:
     void flightPermitStatusChanged                  ();
@@ -205,4 +209,8 @@ signals:
     void rulesChanged                               ();
     void flightListChanged                          ();
     void loadingFlightListChanged                   ();
+    void dirtyChanged                               ();
+
+protected:
+    bool _dirty = false;
 };

@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   (c) 2009-2016 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
+ * (c) 2009-2020 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
  *
  * QGroundControl is licensed according to the terms in the file
  * COPYING.md in the root of the source code directory.
@@ -13,17 +13,8 @@
 #include <QQmlEngine>
 #include <QtQml>
 
-DECLARE_SETTINGGROUP(AirMap)
+DECLARE_SETTINGGROUP(AirMap, "AirMap")
 {
-    INIT_SETTINGFACT(usePersonalApiKey);
-    INIT_SETTINGFACT(apiKey);
-    INIT_SETTINGFACT(clientID);
-    INIT_SETTINGFACT(userName);
-    INIT_SETTINGFACT(password);
-    INIT_SETTINGFACT(enableAirMap);
-    INIT_SETTINGFACT(enableAirspace);
-    INIT_SETTINGFACT(enableTelemetry);
-    QQmlEngine::setObjectOwnership(this, QQmlEngine::CppOwnership);
     qmlRegisterUncreatableType<AirMapSettings>("QGroundControl.SettingsManager", 1, 0, "AirMapSettings", "Reference only");
 }
 

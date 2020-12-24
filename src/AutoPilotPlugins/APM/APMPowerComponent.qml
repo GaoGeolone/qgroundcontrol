@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   (c) 2009-2016 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
+ * (c) 2009-2020 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
  *
  * QGroundControl is licensed according to the terms in the file
  * COPYING.md in the root of the source code directory.
@@ -25,7 +25,6 @@ SetupPage {
 
     FactPanelController {
         id:         controller
-        factPanel:  powerPage.viewPanel
     }
 
     Component {
@@ -45,6 +44,8 @@ SetupPage {
             property bool _batt2ParamsAvailable:    controller.parameterExists(-1, "BATT2_CAPACITY")
             property bool _showBatt1Reboot:         _batt1MonitorEnabled && !_batt1ParamsAvailable
             property bool _showBatt2Reboot:         _batt2MonitorEnabled && !_batt2ParamsAvailable
+            property bool _escCalibrationAvailable: controller.parameterExists(-1, "ESC_CALIBRATION")
+            property Fact _escCalibration:          controller.getParameterFact(-1, "ESC_CALIBRATION", false /* reportMissing */)
 
             property string _restartRequired: qsTr("Requires vehicle reboot")
 
@@ -123,6 +124,7 @@ SetupPage {
 
                         property Fact armVoltMin:       controller.getParameterFact(-1, "r.BATT_ARM_VOLT", false /* reportMissing */)
                         property Fact battAmpPerVolt:   controller.getParameterFact(-1, "r.BATT_AMP_PERVLT", false /* reportMissing */)
+                        property Fact battAmpOffset:    controller.getParameterFact(-1, "BATT_AMP_OFFSET", false /* reportMissing */)
                         property Fact battCapacity:     controller.getParameterFact(-1, "BATT_CAPACITY", false /* reportMissing */)
                         property Fact battCurrPin:      controller.getParameterFact(-1, "BATT_CURR_PIN", false /* reportMissing */)
                         property Fact battMonitor:      controller.getParameterFact(-1, "BATT_MONITOR", false /* reportMissing */)
@@ -207,6 +209,7 @@ SetupPage {
 
                         property Fact armVoltMin:       controller.getParameterFact(-1, "r.BATT2_ARM_VOLT", false /* reportMissing */)
                         property Fact battAmpPerVolt:   controller.getParameterFact(-1, "r.BATT2_AMP_PERVLT", false /* reportMissing */)
+                        property Fact battAmpOffset:    controller.getParameterFact(-1, "BATT2_AMP_OFFSET", false /* reportMissing */)
                         property Fact battCapacity:     controller.getParameterFact(-1, "BATT2_CAPACITY", false /* reportMissing */)
                         property Fact battCurrPin:      controller.getParameterFact(-1, "BATT2_CURR_PIN", false /* reportMissing */)
                         property Fact battMonitor:      controller.getParameterFact(-1, "BATT2_MONITOR", false /* reportMissing */)
@@ -214,6 +217,61 @@ SetupPage {
                         property Fact battVoltPin:      controller.getParameterFact(-1, "BATT2_VOLT_PIN", false /* reportMissing */)
                         property Fact vehicleVoltage:   controller.vehicle.battery2.voltage
                         property Fact vehicleCurrent:   controller.vehicle.battery2.current
+                    }
+                }
+            }
+
+            Column {
+                spacing:    _margins / 2
+                visible:    _escCalibrationAvailable
+
+                QGCLabel {
+                    text:       qsTr("ESC Calibration")
+                    font.family: ScreenTools.demiboldFontFamily
+                }
+
+                Rectangle {
+                    width:  escCalibrationHolder.x + escCalibrationHolder.width + _margins
+                    height: escCalibrationHolder.y + escCalibrationHolder.height + _margins
+                    color:  ggcPal.windowShade
+
+                    Column {
+                        id:         escCalibrationHolder
+                        x:          _margins
+                        y:          _margins
+                        spacing:    _margins
+
+                        Column {
+                            spacing: _margins
+
+                            QGCLabel {
+                                text:   qsTr("WARNING: Remove props prior to calibration!")
+                                color:  qgcPal.warningText
+                            }
+
+                            Row {
+                                spacing: _margins
+
+                                QGCButton {
+                                    text: qsTr("Calibrate")
+                                    enabled:    _escCalibration && _escCalibration.rawValue === 0
+                                    onClicked:  if(_escCalibration) _escCalibration.rawValue = 3
+                                }
+
+                                Column {
+                                    enabled: _escCalibration && _escCalibration.rawValue === 3
+                                    QGCLabel { text:   _escCalibration ? (_escCalibration.rawValue === 3 ? qsTr("Now perform these steps:") : qsTr("Click Calibrate to start, then:")) : "" }
+                                    QGCLabel { text:   qsTr("- Disconnect USB and battery so flight controller powers down") }
+                                    QGCLabel { text:   qsTr("- Connect the battery") }
+                                    QGCLabel { text:   qsTr("- The arming tone will be played (if the vehicle has a buzzer attached)") }
+                                    QGCLabel { text:   qsTr("- If using a flight controller with a safety button press it until it displays solid red") }
+                                    QGCLabel { text:   qsTr("- You will hear a musical tone then two beeps") }
+                                    QGCLabel { text:   qsTr("- A few seconds later you should hear a number of beeps (one for each battery cell you're using)") }
+                                    QGCLabel { text:   qsTr("- And finally a single long beep indicating the end points have been set and the ESC is calibrated") }
+                                    QGCLabel { text:   qsTr("- Disconnect the battery and power up again normally") }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -237,7 +295,8 @@ SetupPage {
                     if (sensorModel.get(i).voltPin == battVoltPin.value &&
                             sensorModel.get(i).currPin == battCurrPin.value &&
                             Math.abs(sensorModel.get(i).voltMult - battVoltMult.value) < 0.001 &&
-                            Math.abs(sensorModel.get(i).ampPerVolt - battAmpPerVolt.value) < 0.0001) {
+                            Math.abs(sensorModel.get(i).ampPerVolt - battAmpPerVolt.value) < 0.0001 &&
+                            Math.abs(sensorModel.get(i).ampOffset - battAmpOffset.value) < 0.0001) {
                         sensorCombo.currentIndex = i
                         return
                     }
@@ -256,6 +315,7 @@ SetupPage {
                     currPin:    3
                     voltMult:   10.1
                     ampPerVolt: 17.0
+                    ampOffset:  0
                 }
 
                 ListElement {
@@ -264,6 +324,7 @@ SetupPage {
                     currPin:    3
                     voltMult:   12.02
                     ampPerVolt: 39.877
+                    ampOffset:  0
                 }
 
                 ListElement {
@@ -272,6 +333,16 @@ SetupPage {
                     currPin:    3
                     voltMult:   12.02
                     ampPerVolt: 17.0
+                    ampOffset:  0
+                }
+
+                ListElement {
+                    text:       qsTr("Blue Robotics Power Sense Module R2")
+                    voltPin:    2
+                    currPin:    3
+                    voltMult:   11.000
+                    ampPerVolt: 37.8788
+                    ampOffset:  0.330
                 }
 
                 ListElement {
@@ -327,6 +398,7 @@ SetupPage {
                     id:                     sensorCombo
                     Layout.minimumWidth:    _fieldWidth
                     model:                  sensorModel
+                    textRole:               "text"
 
                     onActivated: {
                         if (index < sensorModel.count - 1) {
@@ -334,6 +406,7 @@ SetupPage {
                             battCurrPin.value = sensorModel.get(index).currPin
                             battVoltMult.value = sensorModel.get(index).voltMult
                             battAmpPerVolt.value = sensorModel.get(index).ampPerVolt
+                            battAmpOffset.value = sensorModel.get(index).ampOffset
                         } else {
 
                         }
@@ -388,7 +461,7 @@ SetupPage {
                     onClicked: {
                         _calcVoltageDlgVehicleVoltage = vehicleVoltage
                         _calcVoltageDlgBattVoltMultParam = battVoltMult
-                        showDialog(calcVoltageMultiplierDlgComponent, qsTr("Calculate Voltage Multiplier"), qgcView.showDialogDefaultWidth, StandardButton.Close)
+                        mainWindow.showComponentDialog(calcVoltageMultiplierDlgComponent, qsTr("Calculate Voltage Multiplier"), mainWindow.showDialogDefaultWidth, StandardButton.Close)
                     }
 
                 }
@@ -420,7 +493,7 @@ SetupPage {
                     onClicked: {
                         _calcAmpsPerVoltDlgVehicleCurrent = vehicleCurrent
                         _calcAmpsPerVoltDlgBattAmpPerVoltParam = battAmpPerVolt
-                        showDialog(calcAmpsPerVoltDlgComponent, qsTr("Calculate Amps per Volt"), qgcView.showDialogDefaultWidth, StandardButton.Close)
+                        mainWindow.showComponentDialog(calcAmpsPerVoltDlgComponent, qsTr("Calculate Amps per Volt"), mainWindow.showDialogDefaultWidth, StandardButton.Close)
                     }
                 }
 
@@ -432,6 +505,27 @@ SetupPage {
                     text:               qsTr("If the current draw reported by the vehicle is largely different than the current read externally using a current meter you can adjust the amps per volt value to correct this. Click the Calculate button for help with calculating a new value.")
                     visible:            _showAdvanced
                 }
+
+                QGCLabel {
+                    text:       qsTr("Amps Offset:")
+                    visible:    _showAdvanced
+                }
+
+                FactTextField {
+                    width:      _fieldWidth
+                    fact:       battAmpOffset
+                    visible:    _showAdvanced
+                }
+
+                QGCLabel {
+                    Layout.columnSpan:  3
+                    Layout.fillWidth:   true
+                    font.pointSize:     ScreenTools.smallFontPointSize
+                    wrapMode:           Text.WordWrap
+                    text:               qsTr("If the vehicle reports a high current read when there is little or no current going through it, adjust the Amps Offset. It should be equal to the voltage reported by the sensor when the current is zero.")
+                    visible:            _showAdvanced
+                }
+
             } // GridLayout
         } // Column
     } // Component - powerSetupComponent
@@ -459,7 +553,7 @@ SetupPage {
                     QGCLabel {
                         width:      parent.width
                         wrapMode:   Text.WordWrap
-                        text:       qsTr("Measure battery voltage using an external voltmeter and enter the value below. Click Calculate to set the new voltage multiplier.")
+                        text:       qsTr("Measure battery voltage using an external voltmeter and enter the value below. Click Calculate to set the new adjusted voltage multiplier.")
                     }
 
                     Grid {
@@ -480,7 +574,7 @@ SetupPage {
                     }
 
                     QGCButton {
-                        text: "Calculate"
+                        text: qsTr("Calculate And Set")
 
                         onClicked:  {
                             var measuredVoltageValue = parseFloat(measuredVoltage.text)
@@ -542,7 +636,7 @@ SetupPage {
                     }
 
                     QGCButton {
-                        text: "Calculate"
+                        text: qsTr("Calculate And Set")
 
                         onClicked:  {
                             var measuredCurrentValue = parseFloat(measuredCurrent.text)

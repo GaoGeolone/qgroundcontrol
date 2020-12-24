@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   (c) 2009-2016 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
+ * (c) 2009-2020 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
  *
  * QGroundControl is licensed according to the terms in the file
  * COPYING.md in the root of the source code directory.
@@ -30,7 +30,7 @@ SetupPage {
             width:      availableWidth
             spacing:    _margins
 
-            FactPanelController { id: controller; factPanel: safetyPage.viewPanel }
+            FactPanelController { id: controller; }
 
             QGCPalette { id: ggcPal; colorGroupEnabled: true }
 
@@ -57,14 +57,13 @@ SetupPage {
 
             property Fact _armingCheck: controller.getParameterFact(-1, "ARMING_CHECK")
 
-            property real _margins:     ScreenTools.defaultFontPixelHeight
-            property bool _showIcon:    !ScreenTools.isTinyScreen
+            property real _margins:         ScreenTools.defaultFontPixelHeight
+            property real _innerMargin:     _margins / 2
+            property bool _showIcon:        !ScreenTools.isTinyScreen
+            property bool _roverFirmware:   controller.parameterExists(-1, "MODE1") // This catches all usage of ArduRover firmware vehicle types: Rover, Boat...
+
 
             property string _restartRequired: qsTr("Requires vehicle reboot")
-
-            ExclusiveGroup { id: fenceActionRadioGroup }
-            ExclusiveGroup { id: landLoiterRadioGroup }
-            ExclusiveGroup { id: returnAltRadioGroup }
 
             Component {
                 id: batteryFailsafeComponent
@@ -326,7 +325,7 @@ SetupPage {
             }
 
             Loader {
-                sourceComponent: controller.vehicle.rover ? roverGeneralFS : undefined
+                sourceComponent: _roverFirmware ? roverGeneralFS : undefined
             }
 
             Component {
@@ -478,7 +477,6 @@ SetupPage {
                             anchors.left:       parent.left
                             anchors.top:        altitudeGeo.bottom
                             text:               qsTr("Report only")
-                            exclusiveGroup:     fenceActionRadioGroup
                             checked:            _fenceAction.value == 0
 
                             onClicked: _fenceAction.value = 0
@@ -490,7 +488,6 @@ SetupPage {
                             anchors.left:       circleGeo.left
                             anchors.top:        geoReportRadio.bottom
                             text:               qsTr("RTL or Land")
-                            exclusiveGroup:     fenceActionRadioGroup
                             checked:            _fenceAction.value == 1
 
                             onClicked: _fenceAction.value = 1
@@ -555,8 +552,8 @@ SetupPage {
 
                     Rectangle {
                         id:     rtlSettings
-                        width:  rltAltFinalField.x + rltAltFinalField.width + _margins
-                        height: rltAltFinalField.y + rltAltFinalField.height + _margins
+                        width:  landSpeedField.x + landSpeedField.width + _margins
+                        height: landSpeedField.y + landSpeedField.height + _margins
                         color:  ggcPal.windowShade
 
                         Image {
@@ -582,23 +579,21 @@ SetupPage {
 
                         QGCRadioButton {
                             id:                 returnAtCurrentRadio
-                            anchors.margins:    _margins
+                            anchors.margins:    _innerMargin
                             anchors.left:       _showIcon ? icon.right : parent.left
                             anchors.top:        parent.top
                             text:               qsTr("Return at current altitude")
                             checked:            _rtlAltFact.value == 0
-                            exclusiveGroup:     returnAltRadioGroup
 
                             onClicked: _rtlAltFact.value = 0
                         }
 
                         QGCRadioButton {
                             id:                 returnAltRadio
-                            anchors.topMargin:  _margins
-                            anchors.left:       returnAtCurrentRadio.left
+                            anchors.topMargin:  _innerMargin
                             anchors.top:        returnAtCurrentRadio.bottom
+                            anchors.left:       returnAtCurrentRadio.left
                             text:               qsTr("Return at specified altitude:")
-                            exclusiveGroup:     returnAltRadioGroup
                             checked:            _rtlAltFact.value != 0
 
                             onClicked: _rtlAltFact.value = 1500
@@ -626,7 +621,7 @@ SetupPage {
 
                         FactTextField {
                             id:                 landDelayField
-                            anchors.topMargin:  _margins * 1.5
+                            anchors.topMargin:  _innerMargin
                             anchors.left:       rltAltField.left
                             anchors.top:        rltAltField.bottom
                             fact:               _rtlLoitTimeFact
@@ -634,44 +629,33 @@ SetupPage {
                             enabled:            homeLoiterCheckbox.checked === true
                         }
 
-                        QGCRadioButton {
-                            id:                 landRadio
-                            anchors.left:       returnAtCurrentRadio.left
-                            anchors.baseline:   landSpeedField.baseline
-                            text:               qsTr("Land with descent speed:")
-                            checked:            _rtlAltFinalFact.value == 0
-                            exclusiveGroup:     landLoiterRadioGroup
-
-                            onClicked: _rtlAltFinalFact.value = 0
-                        }
-
-                        FactTextField {
-                            id:                 landSpeedField
-                            anchors.topMargin:  _margins * 1.5
-                            anchors.top:        landDelayField.bottom
-                            anchors.left:       rltAltField.left
-                            fact:               _landSpeedFact
-                            showUnits:          true
-                            enabled:            landRadio.checked
-                        }
-
-                        QGCRadioButton {
-                            id:                 finalLoiterRadio
+                        QGCLabel {
                             anchors.left:       returnAtCurrentRadio.left
                             anchors.baseline:   rltAltFinalField.baseline
-                            text:               qsTr("Final loiter altitude:")
-                            exclusiveGroup:     landLoiterRadioGroup
-
-                            onClicked: _rtlAltFinalFact.value = _rtlAltFact.value
+                            text:               qsTr("Final land stage altitude:")
                         }
 
                         FactTextField {
                             id:                 rltAltFinalField
-                            anchors.topMargin:  _margins / 2
+                            anchors.topMargin:  _innerMargin
                             anchors.left:       rltAltField.left
-                            anchors.top:        landSpeedField.bottom
+                            anchors.top:        landDelayField.bottom
                             fact:               _rtlAltFinalFact
-                            enabled:            finalLoiterRadio.checked
+                            showUnits:          true
+                        }
+
+                        QGCLabel {
+                            anchors.left:       returnAtCurrentRadio.left
+                            anchors.baseline:   landSpeedField.baseline
+                            text:               qsTr("Final land stage descent speed:")
+                        }
+
+                        FactTextField {
+                            id:                 landSpeedField
+                            anchors.topMargin: _innerMargin
+                            anchors.left:       rltAltField.left
+                            anchors.top:        rltAltFinalField.bottom
+                            fact:               _landSpeedFact
                             showUnits:          true
                         }
                     } // Rectangle - RTL Settings
@@ -707,7 +691,6 @@ SetupPage {
                             anchors.top:        parent.top
                             text:               qsTr("Return at current altitude")
                             checked:            _rtlAltFact.value < 0
-                            exclusiveGroup:     returnAltRadioGroup
 
                             onClicked: _rtlAltFact.value = -1
                         }
@@ -718,7 +701,6 @@ SetupPage {
                             anchors.left:       returnAtCurrentRadio.left
                             anchors.top:        returnAtCurrentRadio.bottom
                             text:               qsTr("Return at specified altitude:")
-                            exclusiveGroup:     returnAltRadioGroup
                             checked:            _rtlAltFact.value >= 0
 
                             onClicked: _rtlAltFact.value = 10000

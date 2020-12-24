@@ -1,16 +1,11 @@
 /****************************************************************************
  *
- *   (c) 2009-2016 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
+ * (c) 2009-2020 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
  *
  * QGroundControl is licensed according to the terms in the file
  * COPYING.md in the root of the source code directory.
  *
  ****************************************************************************/
-
-
-/// @file
-///     @brief Support for Intel Hex firmware file
-///     @author Don Gagne <don@thegagnes.com>
 
 #include "FirmwareImage.h"
 #include "QGCLoggingCategory.h"
@@ -18,7 +13,7 @@
 #include "QGCMAVLink.h"
 #include "QGCApplication.h"
 #include "FirmwarePlugin.h"
-#include "ParameterManager.h"
+#include "CompInfoParam.h"
 #include "Bootloader.h"
 
 #include <QDebug>
@@ -203,9 +198,6 @@ bool FirmwareImage::isCompatible(uint32_t boardId, uint32_t firmwareId) {
         result = true;
     }
     switch(boardId) {
-    case Bootloader::boardIDAUAVX2_1: // AUAVX2.1 is compatible with px4-v2/v3
-        if (firmwareId == 9) result = true;
-        break;
     case Bootloader::boardIDPX4FMUV3:
         if (firmwareId == 9) result = true;
         break;
@@ -243,7 +235,7 @@ bool FirmwareImage::_px4Load(const QString& imageFilename)
     QStringList requiredKeys;
     requiredKeys << _jsonBoardIdKey << _jsonImageKey << _jsonImageSizeKey;
     if (!JsonHelper::validateRequiredKeys(px4Json, requiredKeys, errorString)) {
-        emit statusMessage(tr("Firmware file mission required key: %1").arg(errorString));
+        emit statusMessage(tr("Firmware file missing required key: %1").arg(errorString));
         return false;
     }
 
@@ -275,12 +267,8 @@ bool FirmwareImage::_px4Load(const QString& imageFilename)
                                         _jsonParamXmlKey,      // key which holds compressed bytes
                                         decompressedBytes);    // Returned decompressed bytes
     if (success) {
-        // Use settings location as our work directory, this way is something goes wrong the file is still there
-        // sitting next to the cache files.
-        QSettings settings;
-        QDir parameterDir = QFileInfo(settings.fileName()).dir();
-        QString parameterFilename = parameterDir.filePath("ParameterFactMetaData.xml");
-        QFile parameterFile(parameterFilename);
+        QString parameterFilename = QGCApplication::cachedParameterMetaDataFile();
+        QFile parameterFile(QGCApplication::cachedParameterMetaDataFile());
 
         if (parameterFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
             qint64 bytesWritten = parameterFile.write(decompressedBytes);
@@ -296,7 +284,7 @@ bool FirmwareImage::_px4Load(const QString& imageFilename)
         }
 
         // Cache this file with the system
-        ParameterManager::cacheMetaDataFile(parameterFilename, firmwareType);
+        CompInfoParam::_cachePX4MetaDataFile(parameterFilename);
     }
 
     // Decompress the airframe xml and save to file
@@ -306,12 +294,9 @@ bool FirmwareImage::_px4Load(const QString& imageFilename)
                                         _jsonAirframeXmlKey,        // key which holds compressed bytes
                                         decompressedBytes);         // Returned decompressed bytes
     if (success) {
-        // We cache the airframe xml in the same location as settings and parameters
-        QSettings settings;
-        QDir airframeDir = QFileInfo(settings.fileName()).dir();
-        QString airframeFilename = airframeDir.filePath("PX4AirframeFactMetaData.xml");
+        QString airframeFilename = QGCApplication::cachedAirframeMetaDataFile();
         //qDebug() << airframeFilename;
-        QFile airframeFile(airframeFilename);
+        QFile airframeFile(QGCApplication::cachedAirframeMetaDataFile());
 
         if (airframeFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
             qint64 bytesWritten = airframeFile.write(decompressedBytes);

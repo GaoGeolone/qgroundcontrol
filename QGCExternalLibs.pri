@@ -1,8 +1,17 @@
+################################################################################
+#
+# (c) 2009-2020 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
+#
+# QGroundControl is licensed according to the terms in the file
+# COPYING.md in the root of the source code directory.
+#
+################################################################################
+
 #
 # [REQUIRED] Add support for <inttypes.h> to Windows.
 #
 WindowsBuild {
-    INCLUDEPATH += libs/lib/msinttypes
+    INCLUDEPATH += libs/msinttypes
 }
 
 #
@@ -36,7 +45,7 @@ isEmpty(MAVLINKPATH) {
         MAVLINKPATH     = $$fromfile(user_config.pri, MAVLINKPATH)
         message($$sprintf("Using user-supplied mavlink path '%1' specified in user_config.pri", $$MAVLINKPATH))
     } else {
-        MAVLINKPATH     = $$BASEDIR/$$MAVLINKPATH_REL
+        MAVLINKPATH     = $$SOURCE_DIR/$$MAVLINKPATH_REL
     }
 }
 
@@ -53,6 +62,9 @@ isEmpty(MAVLINK_CONF) {
 contains (CONFIG, QGC_DISABLE_APM_MAVLINK) {
     message("Disable APM MAVLink support")
     DEFINES += NO_ARDUPILOT_DIALECT
+    CONFIG  += ArdupilotDisabled
+} else {
+    CONFIG  += ArdupilotEnabled
 }
 
 # First we select the dialect, checking for valid user selection
@@ -90,12 +102,20 @@ INCLUDEPATH += libs/eigen
 DEFINES += NOMINMAX
 
 #
-# [REQUIRED] QWT plotting library dependency. Provides plotting capabilities.
+# [REQUIRED] shapelib library
+INCLUDEPATH += libs/shapelib
+SOURCES += \
+    libs/shapelib/shpopen.c \
+    libs/shapelib/safileio.c
+
 #
-!MobileBuild {
-include(libs/qwt.pri)
-DEPENDPATH += libs/qwt
-INCLUDEPATH += libs/qwt
+# [REQUIRED] zlib library
+WindowsBuild {
+    INCLUDEPATH +=  $$SOURCE_DIR/libs/zlib/windows/include
+    LIBS += -L$$SOURCE_DIR/libs/zlib/windows/lib
+    LIBS += -lzlibstat
+} else {
+    LIBS += -lz
 }
 
 #
@@ -105,24 +125,55 @@ INCLUDEPATH += libs/qwt
 #
 MacBuild {
     INCLUDEPATH += \
-        $$BASEDIR/libs/lib/Frameworks/SDL2.framework/Headers
-
+        $$SOURCE_DIR/libs/Frameworks/SDL2.framework/Headers
     LIBS += \
-        -F$$BASEDIR/libs/lib/Frameworks \
+        -F$$SOURCE_DIR/libs/Frameworks \
         -framework SDL2
 } else:LinuxBuild {
     PKGCONFIG = sdl2
 } else:WindowsBuild {
-    INCLUDEPATH += $$BASEDIR/libs/lib/sdl2/msvc/include
+    INCLUDEPATH += $$SOURCE_DIR/libs/sdl2/msvc/include
+    INCLUDEPATH += $$SOURCE_DIR/libs/OpenSSL/Windows/x64/include
+    LIBS += -L$$SOURCE_DIR/libs/sdl2/msvc/lib/x64
+    LIBS += -lSDL2
+}
 
-    contains(QT_ARCH, i386) {
-        LIBS += -L$$BASEDIR/libs/lib/sdl2/msvc/lib/x86
+# Include Android OpenSSL libs
+AndroidBuild {
+    include($$SOURCE_DIR/libs/OpenSSL/android_openssl/openssl.pri)
+    message("ANDROID_EXTRA_LIBS")
+    message($$ANDROID_TARGET_ARCH)
+    message($$ANDROID_EXTRA_LIBS)
+}
+
+# Pairing
+contains(DEFINES, QGC_ENABLE_PAIRING) {
+    MacBuild {
+        #- Pairing is generally not supported on macOS. This is here solely for development.
+        exists(/usr/local/Cellar/openssl/1.0.2t/include) {
+            INCLUDEPATH += /usr/local/Cellar/openssl/1.0.2t/include
+            LIBS += -L/usr/local/Cellar/openssl/1.0.2t/lib
+            LIBS += -lcrypto
+        } else {
+            # There is some circular reference settings going on between QGCExternalLibs.pri and gqgroundcontrol.pro.
+            # So this duplicates some of the enable/disable logic which would normally be in qgroundcontrol.pro.
+            DEFINES -= QGC_ENABLE_PAIRING
+        }
+    } else:WindowsBuild {
+        #- Pairing is not supported on Windows
+        DEFINES -= QGC_ENABLE_PAIRING
     } else {
-        LIBS += -L$$BASEDIR/libs/lib/sdl2/msvc/lib/x64
+        LIBS += -lcrypto
+        AndroidBuild {
+            contains(QT_ARCH, arm) {
+                LIBS += $$ANDROID_EXTRA_LIBS
+                INCLUDEPATH += $$SOURCE_DIR/libs/OpenSSL/Android/arch-armeabi-v7a/include
+            } else {
+                LIBS += $$ANDROID_EXTRA_LIBS
+                INCLUDEPATH += $$SOURCE_DIR/libs/OpenSSL/Android/arch-x86/include
+            }
+        }
     }
-    LIBS += \
-        -lSDL2main \
-        -lSDL2
 }
 
 #
@@ -142,7 +193,6 @@ contains (DEFINES, DISABLE_ZEROCONF) {
     message("Skipping support for Zeroconf (unsupported platform)")
 }
 
-
 #
 # [OPTIONAL] AirMap Support
 #
@@ -152,17 +202,19 @@ contains (DEFINES, DISABLE_AIRMAP) {
 } else:exists(user_config.pri):infile(user_config.pri, DEFINES, DISABLE_AIRMAP) {
     message("Skipping support for AirMap (manual override from user_config.pri)")
 } else {
-    AIRMAPD_PATH = $$PWD/libs/airmapd
+    AIRMAPD_PATH    = $$PWD/libs/airmapd
+    AIRMAP_QT_PATH  = Qt.$${QT_MAJOR_VERSION}.$${QT_MINOR_VERSION}
+    message('Looking for Airmap in folder "$${AIRMAPD_PATH}", variant: "$$AIRMAP_QT_PATH"')
     MacBuild {
-        exists($${AIRMAPD_PATH}/macOS/Qt.5.11.0) {
+        exists($${AIRMAPD_PATH}/macOS/$$AIRMAP_QT_PATH) {
             message("Including support for AirMap for macOS")
-            LIBS += -L$${AIRMAPD_PATH}/macOS/Qt.5.11.0 -lairmap-qt
+            LIBS += -L$${AIRMAPD_PATH}/macOS/$$AIRMAP_QT_PATH -lairmap-qt
             DEFINES += QGC_AIRMAP_ENABLED
         }
     } else:LinuxBuild {
-        exists($${AIRMAPD_PATH}/linux/Qt.5.11.0) {
+        exists($${AIRMAPD_PATH}/linux/$$AIRMAP_QT_PATH) {
             message("Including support for AirMap for Linux")
-            LIBS += -L$${AIRMAPD_PATH}/linux/Qt.5.11.0 -lairmap-qt
+            LIBS += -L$${AIRMAPD_PATH}/linux/$$AIRMAP_QT_PATH -lairmap-qt
             DEFINES += QGC_AIRMAP_ENABLED
         }
     } else {

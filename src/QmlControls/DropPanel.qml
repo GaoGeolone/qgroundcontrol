@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   (c) 2009-2016 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
+ * (c) 2009-2020 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
  *
  * QGroundControl is licensed according to the terms in the file
  * COPYING.md in the root of the source code directory.
@@ -17,17 +17,12 @@ import QGroundControl.Palette       1.0
 
 Item {
     id:         _root
-    z:          QGroundControl.zOrderWidgets
     visible:    false
 
     signal          clicked()
     property real   radius:             ScreenTools.isMobile ? ScreenTools.defaultFontPixelHeight * 1.75 : ScreenTools.defaultFontPixelHeight * 1.25
     property real   viewportMargins:    0
     property var    toolStrip
-
-
-    width:  radius * 2
-    height: radius * 2
 
     // Should be an enum but that get's into the whole problem of creating a singleton which isn't worth the effort
     readonly property int dropLeft:     1
@@ -37,22 +32,19 @@ Item {
 
     readonly property real _arrowBaseHeight:    radius             // Height of vertical side of arrow
     readonly property real _arrowPointWidth:    radius * 0.666     // Distance from vertical side to point
-    readonly property real _dropCornerRadius:   ScreenTools.defaultFontPixelWidth * 0.5
-    readonly property real _dropCornerRadiusX2: _dropCornerRadius * 2
-    readonly property real _dropMargin:         _dropCornerRadius
-    readonly property real _dropMarginX2:       _dropMargin * 2
+    readonly property real _dropMargin:         ScreenTools.defaultFontPixelWidth
 
     property var    _dropEdgeTopPoint
-    property real   _dropEdgeHeight
     property alias  _dropDownComponent: panelLoader.sourceComponent
     property real   _viewportMaxTop:    0
     property real   _viewportMaxBottom: parent.parent.height - parent.y
     property real   _viewportMaxHeight: _viewportMaxBottom - _viewportMaxTop
     property var    _dropPanelCancel
+    property var    _parentButton
 
-    function show(panelEdgeTopPoint, panelEdgeHeight, panelComponent) {
+    function show(panelEdgeTopPoint, panelComponent, parentButton) {
+        _parentButton = parentButton
         _dropEdgeTopPoint = panelEdgeTopPoint
-        _dropEdgeHeight = panelEdgeHeight
         _dropDownComponent = panelComponent
         _calcPositions()
         visible = true
@@ -62,11 +54,9 @@ Item {
     function hide() {
         if (_dropPanelCancel) {
             _dropPanelCancel.destroy()
-        }
-        if (visible) {
+            _parentButton.checked = false
             visible = false
             _dropDownComponent = undefined
-            toolStrip.uncheckAll()
         }
     }
 
@@ -74,8 +64,8 @@ Item {
         var panelComponentWidth  = panelLoader.item.width
         var panelComponentHeight = panelLoader.item.height
 
-        dropDownItem.width  = panelComponentWidth  + (_dropMarginX2 * 2) + _arrowPointWidth
-        dropDownItem.height = panelComponentHeight + (_dropMarginX2 * 2)
+        dropDownItem.width  = panelComponentWidth  + (_dropMargin * 2) + _arrowPointWidth
+        dropDownItem.height = panelComponentHeight + (_dropMargin * 2)
 
         dropDownItem.x = _dropEdgeTopPoint.x + _dropMargin
         dropDownItem.y = _dropEdgeTopPoint.y -(dropDownItem.height / 2) + radius

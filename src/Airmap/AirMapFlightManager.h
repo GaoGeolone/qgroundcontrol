@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   (c) 2017 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
+ * (c) 2009-2020 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
  *
  * QGroundControl is licensed according to the terms in the file
  * COPYING.md in the root of the source code directory.
@@ -17,8 +17,6 @@
 #include <QObject>
 #include <QList>
 #include <QGeoCoordinate>
-
-//-- TODO: This is not even WIP yet. Just a skeleton of what's to come.
 
 //-----------------------------------------------------------------------------
 /// class to upload a flight

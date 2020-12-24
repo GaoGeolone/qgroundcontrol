@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   (c) 2009-2016 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
+ * (c) 2009-2020 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
  *
  * QGroundControl is licensed according to the terms in the file
  * COPYING.md in the root of the source code directory.
@@ -29,18 +29,17 @@ SetupPage {
             width: availableWidth
 
             Component.onCompleted: {
+                // We use QtCharts only on Desktop platforms
                 showAdvanced = !ScreenTools.isMobile
             }
 
             FactPanelController {
                 id:         controller
-                factPanel:  tuningPage.viewPanel
             }
 
             // Standard tuning page
             FactSliderPanel {
                 width:          availableWidth
-                qgcViewPanel:   tuningPage.viewPanel
                 visible:        !advanced
 
                 sliderModel: ListModel {
@@ -61,26 +60,6 @@ SetupPage {
                         max:            15
                         step:           1
                     }
-                    /*
-  These seem to have disappeared from PX4 firmware!
-                    ListElement {
-                        title:          qsTr("Roll sensitivity")
-                        description:    qsTr("Slide to the left to make roll control faster and more accurate. Slide to the right if roll oscillates or is too twitchy.")
-                        param:          "MC_ROLL_TC"
-                        min:            0.15
-                        max:            0.25
-                        step:           0.01
-                    }
-
-                    ListElement {
-                        title:          qsTr("Pitch sensitivity")
-                        description:    qsTr("Slide to the left to make pitch control faster and more accurate. Slide to the right if pitch oscillates or is too twitchy.")
-                        param:          "MC_PITCH_TC"
-                        min:            0.15
-                        max:            0.25
-                        step:           0.01
-                    }
-*/
                 }
             }
 
@@ -112,7 +91,6 @@ SetupPage {
                          controller.getParameterFact(-1, "MC_YAWRATE_P"),
                          controller.getParameterFact(-1, "MC_YAWRATE_I"),
                          controller.getParameterFact(-1, "MC_YAWRATE_D"),
-                         controller.getParameterFact(-1, "MC_YAW_FF"),
                          controller.getParameterFact(-1, "MC_YAWRATE_FF") ] ]
                 }
             } // Component - Advanced Page

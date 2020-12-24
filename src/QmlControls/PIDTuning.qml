@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   (c) 2009-2016 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
+ * (c) 2009-2020 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
  *
  * QGroundControl is licensed according to the terms in the file
  * COPYING.md in the root of the source code directory.
@@ -27,18 +27,18 @@ RowLayout {
     property real   _chartHeight:       ScreenTools.defaultFontPixelHeight * 20
     property real   _margins:           ScreenTools.defaultFontPixelHeight / 2
     property string _currentTuneType:   tuneList[0]
-    property real   _roll:              _activeVehicle.roll.value
-    property real   _rollSetpoint:      _activeVehicle.setpoint.roll.value
-    property real   _rollRate:          _activeVehicle.rollRate.value
-    property real   _rollRateSetpoint:  _activeVehicle.setpoint.rollRate.value
-    property real   _pitch:             _activeVehicle.pitch.value
-    property real   _pitchSetpoint:     _activeVehicle.setpoint.pitch.value
-    property real   _pitchRate:         _activeVehicle.pitchRate.value
-    property real   _pitchRateSetpoint: _activeVehicle.setpoint.pitchRate.value
-    property real   _yaw:               _activeVehicle.heading.value
-    property real   _yawSetpoint:       _activeVehicle.setpoint.yaw.value
-    property real   _yawRate:           _activeVehicle.yawRate.value
-    property real   _yawRateSetpoint:   _activeVehicle.setpoint.yawRate.value
+    property real   _roll:              globals.activeVehicle.roll.value
+    property real   _rollSetpoint:      globals.activeVehicle.setpoint.roll.value
+    property real   _rollRate:          globals.activeVehicle.rollRate.value
+    property real   _rollRateSetpoint:  globals.activeVehicle.setpoint.rollRate.value
+    property real   _pitch:             globals.activeVehicle.pitch.value
+    property real   _pitchSetpoint:     globals.activeVehicle.setpoint.pitch.value
+    property real   _pitchRate:         globals.activeVehicle.pitchRate.value
+    property real   _pitchRateSetpoint: globals.activeVehicle.setpoint.pitchRate.value
+    property real   _yaw:               globals.activeVehicle.heading.value
+    property real   _yawSetpoint:       globals.activeVehicle.setpoint.yaw.value
+    property real   _yawRate:           globals.activeVehicle.yawRate.value
+    property real   _yawRateSetpoint:   globals.activeVehicle.setpoint.yawRate.value
     property var    _valueXAxis:        valueXAxis
     property var    _valueRateXAxis:    valueRateXAxis
     property var    _valueYAxis:        valueYAxis
@@ -142,16 +142,15 @@ RowLayout {
     }
 
     Component.onCompleted: {
+        globals.activeVehicle.setPIDTuningTelemetryMode(true)
         saveTuningParamValues()
     }
+
+    Component.onDestruction: globals.activeVehicle.setPIDTuningTelemetryMode(false)
 
     on_CurrentTuneTypeChanged: {
         saveTuningParamValues()
         resetGraphs()
-    }
-
-    ExclusiveGroup {
-        id: tuneTypeRadios
     }
 
     ValueAxis {
@@ -159,7 +158,8 @@ RowLayout {
         min:            0
         max:            0
         labelFormat:    "%d"
-        titleText:      "sec"
+        titleText:      "msec"
+        tickCount:      11
     }
 
     ValueAxis {
@@ -167,7 +167,8 @@ RowLayout {
         min:            0
         max:            0
         labelFormat:    "%d"
-        titleText:      "sec"
+        titleText:      "msec"
+        tickCount:      11
     }
 
     ValueAxis {
@@ -193,43 +194,30 @@ RowLayout {
         repeat:     true
 
         onTriggered: {
-            var seconds = _msecs / 1000
-            _valueXAxis.max = seconds
-            _valueRateXAxis.max = seconds
+            _valueXAxis.max = _msecs
+            _valueRateXAxis.max = _msecs
 
             getValues()
 
-            valueSeries.append(seconds, _value)
+            valueSeries.append(_msecs, _value)
             adjustYAxisMin(_valueYAxis, _value)
             adjustYAxisMax(_valueYAxis, _value)
 
-            valueSetpointSeries.append(seconds, _valueSetpoint)
+            valueSetpointSeries.append(_msecs, _valueSetpoint)
             adjustYAxisMin(_valueYAxis, _valueSetpoint)
             adjustYAxisMax(_valueYAxis, _valueSetpoint)
 
-            valueRateSeries.append(seconds, _valueRate)
+            valueRateSeries.append(_msecs, _valueRate)
             adjustYAxisMin(_valueRateYAxis, _valueRate)
             adjustYAxisMax(_valueRateYAxis, _valueRate)
 
-            valueRateSetpointSeries.append(seconds, _valueRateSetpoint)
+            valueRateSetpointSeries.append(_msecs, _valueRateSetpoint)
             adjustYAxisMin(_valueRateYAxis, _valueRateSetpoint)
             adjustYAxisMax(_valueRateYAxis, _valueRateSetpoint)
 
             _msecs += interval
-            /*
-                              Testing with just start/stop for now. No time limit.
-                            if (valueSeries.count > _maxPointCount) {
-                                valueSeries.remove(0)
-                                valueSetpointSeries.remove(0)
-                                valueRateSeries.remove(0)
-                                valueRateSetpointSeries.remove(0)
-                                valueXAxis.min = valueSeries.at(0).x
-                                valueRateXAxis.min = valueSeries.at(0).x
-                            }
-                            */
         }
 
-        property var _activeVehicle:    QGroundControl.multiVehicleManager.activeVehicle
         property int _maxPointCount:    10000 / interval
     }
 
@@ -237,24 +225,22 @@ RowLayout {
         spacing:            _margins
         Layout.alignment:   Qt.AlignTop
 
-        QGCLabel { text: qsTr("Tuning Axis:") }
+        Column {
+            QGCLabel { text: qsTr("Tuning Axis:") }
 
-        RowLayout {
-            spacing: _margins
+            RowLayout {
+                spacing: _margins
 
-            Repeater {
-                model: tuneList
-                QGCRadioButton {
-                    text:           modelData
-                    checked:        _currentTuneType === modelData
-                    exclusiveGroup: tuneTypeRadios
-
-                    onClicked: _currentTuneType = modelData
+                Repeater {
+                    model: tuneList
+                    QGCRadioButton {
+                        text:           modelData
+                        checked:        _currentTuneType === modelData
+                        onClicked: _currentTuneType = modelData
+                    }
                 }
             }
         }
-
-        Item { width: 1; height: 1 }
 
         QGCLabel { text: qsTr("Tuning Values:") }
 
@@ -279,7 +265,10 @@ RowLayout {
                     text: "-"
                     onClicked: {
                         var value = modelData.value
-                        modelData.value -= value * adjustPercentModel.get(adjustPercentCombo.currentIndex).value
+                        var newValue = value - (value * adjustPercentModel.get(adjustPercentCombo.currentIndex).value)
+                        if (newValue >= modelData.min) {
+                            modelData.value = newValue
+                        }
                     }
                 }
             }
@@ -301,7 +290,10 @@ RowLayout {
                     text: "+"
                     onClicked: {
                         var value = modelData.value
-                        modelData.value += value * adjustPercentModel.get(adjustPercentCombo.currentIndex).value
+                        var newValue = value + (value * adjustPercentModel.get(adjustPercentCombo.currentIndex).value)
+                        if (newValue <= modelData.max) {
+                            modelData.value = newValue
+                        }
                     }
                 }
             }
@@ -311,7 +303,8 @@ RowLayout {
             QGCLabel { text: qsTr("Increment/Decrement %") }
 
             QGCComboBox {
-                id:     adjustPercentCombo
+                id:         adjustPercentCombo
+                textRole:   "text"
                 model:  ListModel {
                     id: adjustPercentModel
                     ListElement { text: "5"; value: 0.05 }
@@ -321,26 +314,27 @@ RowLayout {
                 }
             }
         }
-        Item { width: 1; height: 1 }
 
-        QGCLabel { text: qsTr("Saved Tuning Values:") }
+        Column {
+            QGCLabel { text: qsTr("Clipboard Values:") }
 
-        GridLayout {
-            rows:           savedRepeater.model.length
-            flow:           GridLayout.TopToBottom
-            rowSpacing:     _margins
-            columnSpacing:  _margins
+            GridLayout {
+                rows:           savedRepeater.model.length
+                flow:           GridLayout.TopToBottom
+                rowSpacing:     0
+                columnSpacing:  _margins
 
-            Repeater {
-                model: params[tuneList.indexOf(_currentTuneType)]
+                Repeater {
+                    model: params[tuneList.indexOf(_currentTuneType)]
 
-                QGCLabel { text: modelData.name }
-            }
+                    QGCLabel { text: modelData.name }
+                }
 
-            Repeater {
-                id: savedRepeater
+                Repeater {
+                    id: savedRepeater
 
-                QGCLabel { text: modelData }
+                    QGCLabel { text: modelData }
+                }
             }
         }
 
@@ -348,12 +342,12 @@ RowLayout {
             spacing: _margins
 
             QGCButton {
-                text:       qsTr("Save Values")
+                text:       qsTr("Save To Clipboard")
                 onClicked:  saveTuningParamValues()
             }
 
             QGCButton {
-                text:       qsTr("Reset To Saved Values")
+                text:       qsTr("Restore From Clipboard")
                 onClicked:  resetToSavedTuningParamValues()
             }
         }
@@ -372,7 +366,30 @@ RowLayout {
 
             QGCButton {
                 text:       dataTimer.running ? qsTr("Stop") : qsTr("Start")
-                onClicked:  dataTimer.running = !dataTimer.running
+                onClicked: {
+                    dataTimer.running = !dataTimer.running
+                    if (autoModeChange.checked) {
+                        globals.activeVehicle.flightMode = dataTimer.running ? "Stabilized" : globals.activeVehicle.pauseFlightMode
+                    }
+                }
+            }
+        }
+
+        QGCCheckBox {
+            id:     autoModeChange
+            text:   qsTr("Automatic Flight Mode Switching")
+        }
+
+        Column {
+            visible: autoModeChange.checked
+            QGCLabel {
+                text:            qsTr("Switches to 'Stabilized' when you click Start.")
+                font.pointSize:     ScreenTools.smallFontPointSize
+            }
+
+            QGCLabel {
+                text:            qsTr("Switches to '%1' when you click Stop.").arg(globals.activeVehicle.pauseFlightMode)
+                font.pointSize:     ScreenTools.smallFontPointSize
             }
         }
     }

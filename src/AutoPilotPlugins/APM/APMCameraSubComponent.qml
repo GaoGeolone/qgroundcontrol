@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   (c) 2009-2018 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
+ * (c) 2009-2020 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
  *
  * QGroundControl is licensed according to the terms in the file
  * COPYING.md in the root of the source code directory.
@@ -31,12 +31,11 @@ SetupPage {
             spacing:    _margins
             width:      availableWidth
 
-            FactPanelController { id: controller; factPanel: cameraPage.viewPanel }
+            FactPanelController { id: controller; }
 
             QGCPalette { id: palette; colorGroupEnabled: true }
 
-            property var  _activeVehicle:       QGroundControl.multiVehicleManager.activeVehicle
-            property bool _oldFW:               !(_activeVehicle.firmwareMajorVersion > 3 || _activeVehicle.firmwareMinorVersion > 5 || _activeVehicle.firmwarePatchVersion >= 2)
+            property bool _oldFW:               !(globals.activeVehicle.firmwareMajorVersion > 3 || globals.activeVehicle.firmwareMinorVersion > 5 || globals.activeVehicle.firmwarePatchVersion >= 2)
 
             property Fact _mountRetractX:       controller.getParameterFact(-1, "MNT_RETRACT_X")
             property Fact _mountRetractY:       controller.getParameterFact(-1, "MNT_RETRACT_Y")
@@ -166,17 +165,17 @@ SetupPage {
             // Whenever an MNT_RC_IN_* setting is changed make sure to turn on RC targeting
             Connections {
                 target:         _mountRCInPan
-                onValueChanged: _mountDefaultMode.value = _mountDefaultModeRCTargetting
+                onValueChanged: if(_mountDefaultMode) _mountDefaultMode.value = _mountDefaultModeRCTargetting
             }
 
             Connections {
                 target:         _mountRCInRoll
-                onValueChanged: _mountDefaultMode.value = _mountDefaultModeRCTargetting
+                onValueChanged: if(_mountDefaultMode) _mountDefaultMode.value = _mountDefaultModeRCTargetting
             }
 
             Connections {
                 target:         _mountRCInTilt
-                onValueChanged: _mountDefaultMode.value = _mountDefaultModeRCTargetting
+                onValueChanged: if(_mountDefaultMode) _mountDefaultMode.value = _mountDefaultModeRCTargetting
             }
 
             ListModel {
@@ -317,10 +316,11 @@ SetupPage {
                                             }
 
                                             QGCComboBox {
-                                                id:           outputChan
-                                                width:        servoPWMMinField.width
-                                                model:        gimbalOutModel
-                                                currentIndex: gimbalOutIndex
+                                                id:             outputChan
+                                                width:          servoPWMMinField.width
+                                                model:          gimbalOutModel
+                                                textRole:       "text"
+                                                currentIndex:   gimbalOutIndex
 
                                                 onActivated: setRCFunction(gimbalOutModel.get(index).value, rcFunction)
                                             }

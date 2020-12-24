@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   (c) 2009-2016 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
+ * (c) 2009-2020 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
  *
  * QGroundControl is licensed according to the terms in the file
  * COPYING.md in the root of the source code directory.
@@ -31,12 +31,11 @@ SetupPage {
             width:      availableWidth
             spacing:    _margins
 
-            FactPanelController { id: controller; factPanel: safetyPage.viewPanel }
+            FactPanelController { id: controller; }
 
             QGCPalette { id: ggcPal; colorGroupEnabled: true }
 
-            property var _activeVehicle:     QGroundControl.multiVehicleManager.activeVehicle
-            property bool _firmware34:       _activeVehicle.versionCompare(3, 5, 0) < 0
+            property bool _firmware34:       globals.activeVehicle.versionCompare(3, 5, 0) < 0
 
             // Enable/Action parameters
             property Fact _failsafeBatteryEnable:     controller.getParameterFact(-1, "r.BATT_FS_LOW_ACT")
@@ -61,8 +60,6 @@ SetupPage {
 
             property real _margins:     ScreenTools.defaultFontPixelHeight
             property bool _showIcon:    !ScreenTools.isTinyScreen
-
-            ExclusiveGroup { id: fenceActionRadioGroup }
 
             Column {
                 spacing: _margins / 2

@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   (c) 2009-2016 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
+ * (c) 2009-2020 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
  *
  * QGroundControl is licensed according to the terms in the file
  * COPYING.md in the root of the source code directory.
@@ -23,10 +23,11 @@ Fact::Fact(QObject* parent)
     , _componentId              (-1)
     , _rawValue                 (0)
     , _type                     (FactMetaData::valueTypeInt32)
-    , _metaData                 (NULL)
+    , _metaData                 (nullptr)
     , _sendValueChangedSignals  (true)
     , _deferredValueChangeSignal(false)
-    , _valueSliderModel         (NULL)
+    , _valueSliderModel         (nullptr)
+    , _ignoreQGCRebootRequired  (false)
 {    
     FactMetaData* metaData = new FactMetaData(_type, this);
     setMetaData(metaData);
@@ -40,10 +41,11 @@ Fact::Fact(int componentId, QString name, FactMetaData::ValueType_t type, QObjec
     , _componentId              (componentId)
     , _rawValue                 (0)
     , _type                     (type)
-    , _metaData                 (NULL)
+    , _metaData                 (nullptr)
     , _sendValueChangedSignals  (true)
     , _deferredValueChangeSignal(false)
-    , _valueSliderModel         (NULL)
+    , _valueSliderModel         (nullptr)
+    , _ignoreQGCRebootRequired  (false)
 {
     FactMetaData* metaData = new FactMetaData(_type, this);
     setMetaData(metaData);
@@ -57,10 +59,11 @@ Fact::Fact(const QString& settingsGroup, FactMetaData* metaData, QObject* parent
     , _componentId              (0)
     , _rawValue                 (0)
     , _type                     (metaData->type())
-    , _metaData                 (NULL)
+    , _metaData                 (nullptr)
     , _sendValueChangedSignals  (true)
     , _deferredValueChangeSignal(false)
-    , _valueSliderModel         (NULL)
+    , _valueSliderModel         (nullptr)
+    , _ignoreQGCRebootRequired  (false)
 {
     qgcApp()->toolbox()->corePlugin()->adjustSettingMetaData(settingsGroup, *metaData);
     setMetaData(metaData, true /* setDefaultFromMetaData */);
@@ -90,11 +93,12 @@ const Fact& Fact::operator=(const Fact& other)
     _type                       = other._type;
     _sendValueChangedSignals    = other._sendValueChangedSignals;
     _deferredValueChangeSignal  = other._deferredValueChangeSignal;
-    _valueSliderModel       = NULL;
+    _valueSliderModel           = nullptr;
+    _ignoreQGCRebootRequired    = other._ignoreQGCRebootRequired;
     if (_metaData && other._metaData) {
         *_metaData = *other._metaData;
     } else {
-        _metaData = NULL;
+        _metaData = nullptr;
     }
     
     return *this;
@@ -147,15 +151,20 @@ void Fact::setCookedValue(const QVariant& value)
     }
 }
 
-void Fact::setEnumStringValue(const QString& value)
+int Fact::valueIndex(const QString& value)
 {
     if (_metaData) {
-        int index = _metaData->enumStrings().indexOf(value);
-        if (index != -1) {
-            setCookedValue(_metaData->enumValues()[index]);
-        }
-    } else {
-        qWarning() << kMissingMetadata << name();
+        return _metaData->enumStrings().indexOf(value);
+    }
+    qWarning() << kMissingMetadata << name();
+    return -1;
+}
+
+void Fact::setEnumStringValue(const QString& value)
+{
+    int index = valueIndex(value);
+    if (index != -1) {
+        setCookedValue(_metaData->enumValues()[index]);
     }
 }
 
@@ -510,7 +519,7 @@ int Fact::decimalPlaces(void) const
         return _metaData->decimalPlaces();
     } else {
         qWarning() << kMissingMetadata << name();
-        return FactMetaData::defaultDecimalPlaces;
+        return FactMetaData::kDefaultDecimalPlaces;
     }
 }
 
@@ -537,7 +546,7 @@ QString Fact::group(void) const
 void Fact::setMetaData(FactMetaData* metaData, bool setDefaultFromMetaData)
 {
     _metaData = metaData;
-    if (setDefaultFromMetaData) {
+    if (setDefaultFromMetaData && metaData->defaultValueAvailable()) {
         setRawValue(rawDefaultValue());
     }
     emit valueChanged(cookedValue());
@@ -610,7 +619,9 @@ bool Fact::vehicleRebootRequired(void) const
 
 bool Fact::qgcRebootRequired(void) const
 {
-    if (_metaData) {
+    if (_ignoreQGCRebootRequired) {
+        return false;
+    } else if (_metaData) {
         return _metaData->qgcRebootRequired();
     } else {
         qWarning() << kMissingMetadata << name();
@@ -728,11 +739,18 @@ FactValueSliderListModel* Fact::valueSliderModel(void)
 
 void Fact::_checkForRebootMessaging(void)
 {
-    if (!qgcApp()->runningUnitTests()) {
-        if (vehicleRebootRequired()) {
-            qgcApp()->showMessage(tr("Change of parameter %1 requires a Vehicle reboot to take effect.").arg(name()));
-        } else if (qgcRebootRequired()) {
-            qgcApp()->showMessage(tr("Change of '%1' value requires restart of %2 to take effect.").arg(shortDescription()).arg(qgcApp()->applicationName()));
+    if(qgcApp()) {
+        if (!qgcApp()->runningUnitTests()) {
+            if (vehicleRebootRequired()) {
+                qgcApp()->showAppMessage(tr("Change of parameter %1 requires a Vehicle reboot to take effect.").arg(name()));
+            } else if (qgcRebootRequired()) {
+                qgcApp()->showAppMessage(tr("Change of '%1' value requires restart of %2 to take effect.").arg(shortDescription()).arg(qgcApp()->applicationName()));
+            }
         }
     }
+}
+
+void Fact::_setIgnoreQGCRebootRequired(bool ignore)
+{
+    _ignoreQGCRebootRequired = ignore;
 }

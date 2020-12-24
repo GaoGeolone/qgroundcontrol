@@ -1,7 +1,15 @@
 ---
 name: Feature request
-about: Suggest an idea for this project
+about: Tell us about your new idea
 
 ---
 
-Please use [the forums](http://discuss.px4.io/c/qgroundcontrol) for new feature requests. You can cross-link the thread in a new issue. However, due to the high amount of user feedback expect the QGC maintainer team to close feature requests that can't be implemented relatively quickly.
+Tell us a bit about the feature:
+- What problem does it solve?
+- What does it do?
+- What flight stacks must it work with? (All, PX4, ArduPilot)
+- Relevant vehicle types? (All, multirotor, fixed-wing, VTOL, submarine, etc.)
+- Are there other systems that have this feature?
+- What communication/integration standards does the feature rely on (e.g. MAVLink commands etc.)
+
+Any additional context you can provide will make the feature easier to evaluate (e.g. mockups, detailed specification, etc.)

@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   (c) 2009-2016 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
+ * (c) 2009-2020 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
  *
  * QGroundControl is licensed according to the terms in the file
  * COPYING.md in the root of the source code directory.
@@ -16,57 +16,66 @@
 #include "SettingsManager.h"
 #include "AppSettings.h"
 #include "QGCQGeoCoordinate.h"
+#include "PlanMasterController.h"
+#include "FlightPathSegment.h"
 
 #include <QPolygonF>
 
 QGC_LOGGING_CATEGORY(StructureScanComplexItemLog, "StructureScanComplexItemLog")
 
+const QString StructureScanComplexItem::name(tr("Structure Scan"));
+
 const char* StructureScanComplexItem::settingsGroup =               "StructureScan";
-const char* StructureScanComplexItem::altitudeName =                "Altitude";
+const char* StructureScanComplexItem::_entranceAltName =            "EntranceAltitude";
+const char* StructureScanComplexItem::scanBottomAltName =           "ScanBottomAlt";
 const char* StructureScanComplexItem::structureHeightName =         "StructureHeight";
 const char* StructureScanComplexItem::layersName =                  "Layers";
 const char* StructureScanComplexItem::gimbalPitchName =             "GimbalPitch";
+const char* StructureScanComplexItem::startFromTopName =            "StartFromTop";
 
 const char* StructureScanComplexItem::jsonComplexItemTypeValue =    "StructureScan";
 const char* StructureScanComplexItem::_jsonCameraCalcKey =          "CameraCalc";
-const char* StructureScanComplexItem::_jsonAltitudeRelativeKey =    "altitudeRelative";
 
-StructureScanComplexItem::StructureScanComplexItem(Vehicle* vehicle, bool flyView, const QString& kmlFile, QObject* parent)
-    : ComplexMissionItem        (vehicle, flyView, parent)
+StructureScanComplexItem::StructureScanComplexItem(PlanMasterController* masterController, bool flyView, const QString& kmlOrShpFile, QObject* parent)
+    : ComplexMissionItem        (masterController, flyView, parent)
     , _metaDataMap              (FactMetaData::createMapFromJsonFile(QStringLiteral(":/json/StructureScan.SettingsGroup.json"), this /* QObject parent */))
     , _sequenceNumber           (0)
-    , _dirty                    (false)
-    , _altitudeRelative         (true)
     , _entryVertex              (0)
     , _ignoreRecalc             (false)
     , _scanDistance             (0.0)
     , _cameraShots              (0)
-    , _cameraCalc               (vehicle, settingsGroup)
-    , _altitudeFact             (settingsGroup, _metaDataMap[altitudeName])
+    , _cameraCalc               (masterController, settingsGroup)
+    , _scanBottomAltFact        (settingsGroup, _metaDataMap[scanBottomAltName])
     , _structureHeightFact      (settingsGroup, _metaDataMap[structureHeightName])
     , _layersFact               (settingsGroup, _metaDataMap[layersName])
     , _gimbalPitchFact          (settingsGroup, _metaDataMap[gimbalPitchName])
+    , _startFromTopFact         (settingsGroup, _metaDataMap[startFromTopName])
+    , _entranceAltFact          (settingsGroup, _metaDataMap[_entranceAltName])
 {
     _editorQml = "qrc:/qml/StructureScanEditor.qml";
 
-    _altitudeFact.setRawValue(qgcApp()->toolbox()->settingsManager()->appSettings()->defaultMissionItemAltitude()->rawValue());
+    _entranceAltFact.setRawValue(qgcApp()->toolbox()->settingsManager()->appSettings()->defaultMissionItemAltitude()->rawValue());
 
-    connect(&_altitudeFact,     &Fact::valueChanged, this, &StructureScanComplexItem::_setDirty);
-    connect(&_layersFact,       &Fact::valueChanged, this, &StructureScanComplexItem::_setDirty);
-    connect(&_gimbalPitchFact,  &Fact::valueChanged, this, &StructureScanComplexItem::_setDirty);
+    connect(&_entranceAltFact,      &Fact::valueChanged, this, &StructureScanComplexItem::_setDirty);
+    connect(&_scanBottomAltFact,    &Fact::valueChanged, this, &StructureScanComplexItem::_setDirty);
+    connect(&_layersFact,           &Fact::valueChanged, this, &StructureScanComplexItem::_setDirty);
+    connect(&_gimbalPitchFact,      &Fact::valueChanged, this, &StructureScanComplexItem::_setDirty);
+    connect(&_startFromTopFact,     &Fact::valueChanged, this, &StructureScanComplexItem::_setDirty);
 
-    connect(&_layersFact,                           &Fact::valueChanged,    this, &StructureScanComplexItem::_recalcLayerInfo);
+    connect(&_startFromTopFact,     &Fact::valueChanged, this, &StructureScanComplexItem::_signalTopBottomAltChanged);
+    connect(&_layersFact,           &Fact::valueChanged, this, &StructureScanComplexItem::_signalTopBottomAltChanged);
+
     connect(&_structureHeightFact,                  &Fact::valueChanged,    this, &StructureScanComplexItem::_recalcLayerInfo);
+    connect(&_scanBottomAltFact,                    &Fact::valueChanged,    this, &StructureScanComplexItem::_recalcLayerInfo);
     connect(_cameraCalc.adjustedFootprintFrontal(), &Fact::valueChanged,    this, &StructureScanComplexItem::_recalcLayerInfo);
 
-    connect(this, &StructureScanComplexItem::altitudeRelativeChanged,       this, &StructureScanComplexItem::_setDirty);
-    connect(this, &StructureScanComplexItem::altitudeRelativeChanged,       this, &StructureScanComplexItem::coordinateHasRelativeAltitudeChanged);
-    connect(this, &StructureScanComplexItem::altitudeRelativeChanged,       this, &StructureScanComplexItem::exitCoordinateHasRelativeAltitudeChanged);
-
-    connect(&_altitudeFact, &Fact::valueChanged, this, &StructureScanComplexItem::_updateCoordinateAltitudes);
+    connect(&_entranceAltFact, &Fact::valueChanged, this, &StructureScanComplexItem::_updateCoordinateAltitudes);
 
     connect(&_structurePolygon, &QGCMapPolygon::dirtyChanged,   this, &StructureScanComplexItem::_polygonDirtyChanged);
     connect(&_structurePolygon, &QGCMapPolygon::pathChanged,    this, &StructureScanComplexItem::_rebuildFlightPolygon);
+    connect(&_structurePolygon, &QGCMapPolygon::isValidChanged, this, &StructureScanComplexItem::readyForSaveStateChanged);
+    connect(&_structurePolygon, &QGCMapPolygon::isValidChanged,     this, &StructureScanComplexItem::_updateWizardMode);
+    connect(&_structurePolygon, &QGCMapPolygon::traceModeChanged,   this, &StructureScanComplexItem::_updateWizardMode);
 
     connect(&_structurePolygon, &QGCMapPolygon::countChanged,   this, &StructureScanComplexItem::_updateLastSequenceNumber);
     connect(&_layersFact,       &Fact::valueChanged,            this, &StructureScanComplexItem::_updateLastSequenceNumber);
@@ -81,22 +90,45 @@ StructureScanComplexItem::StructureScanComplexItem(Vehicle* vehicle, bool flyVie
 
     connect(&_cameraCalc, &CameraCalc::isManualCameraChanged, this, &StructureScanComplexItem::_updateGimbalPitch);
 
+    connect(&_layersFact,                           &Fact::valueChanged,            this, &StructureScanComplexItem::_recalcScanDistance);
+    connect(&_flightPolygon,                        &QGCMapPolygon::pathChanged,    this, &StructureScanComplexItem::_recalcScanDistance);
+
+    connect(this, &StructureScanComplexItem::wizardModeChanged, this, &StructureScanComplexItem::readyForSaveStateChanged);
+
+    connect(_missionController, &MissionController::plannedHomePositionChanged,     this, &StructureScanComplexItem::_amslEntryAltChanged);
+    connect(&_entranceAltFact,  &Fact::valueChanged,                                this, &StructureScanComplexItem::_amslEntryAltChanged);
+    connect(this,               &StructureScanComplexItem::amslEntryAltChanged,     this, &StructureScanComplexItem::amslExitAltChanged);
+
+    connect(_missionController, &MissionController::plannedHomePositionChanged,     this, &StructureScanComplexItem::_minAMSLAltChanged);
+    connect(_missionController, &MissionController::plannedHomePositionChanged,     this, &StructureScanComplexItem::_maxAMSLAltChanged);
+    connect(this,               &StructureScanComplexItem::topFlightAltChanged,     this, &StructureScanComplexItem::_minAMSLAltChanged);
+    connect(this,               &StructureScanComplexItem::topFlightAltChanged,     this, &StructureScanComplexItem::_maxAMSLAltChanged);
+    connect(this,               &StructureScanComplexItem::bottomFlightAltChanged,  this, &StructureScanComplexItem::_minAMSLAltChanged);
+    connect(this,               &StructureScanComplexItem::bottomFlightAltChanged,  this, &StructureScanComplexItem::_maxAMSLAltChanged);
+    connect(&_entranceAltFact,  &Fact::valueChanged,                                this, &StructureScanComplexItem::_minAMSLAltChanged);
+    connect(&_entranceAltFact,  &Fact::valueChanged,                                this, &StructureScanComplexItem::_maxAMSLAltChanged);
+
+    connect(&_flightPolygon,                        &QGCMapPolygon::pathChanged,                    this, &StructureScanComplexItem::_updateFlightPathSegmentsSignal);
+    connect(&_startFromTopFact,                     &Fact::valueChanged,                            this, &StructureScanComplexItem::_updateFlightPathSegmentsSignal);
+    connect(&_structureHeightFact,                  &Fact::valueChanged,                            this, &StructureScanComplexItem::_updateFlightPathSegmentsSignal);
+    connect(&_scanBottomAltFact,                    &Fact::valueChanged,                            this, &StructureScanComplexItem::_updateFlightPathSegmentsSignal);
+    connect(_cameraCalc.adjustedFootprintFrontal(), &Fact::valueChanged,                            this, &StructureScanComplexItem::_updateFlightPathSegmentsSignal);
+    connect(&_entranceAltFact,                      &Fact::valueChanged,                            this, &StructureScanComplexItem::_updateFlightPathSegmentsSignal);
+    connect(&_layersFact,                           &Fact::valueChanged,                            this, &StructureScanComplexItem::_updateFlightPathSegmentsSignal);
+    connect(_missionController,                     &MissionController::plannedHomePositionChanged, this, &StructureScanComplexItem::_updateFlightPathSegmentsSignal);
+
+    // The follow is used to compress multiple recalc calls in a row to into a single call.
+    connect(this, &StructureScanComplexItem::_updateFlightPathSegmentsSignal, this, &StructureScanComplexItem::_updateFlightPathSegmentsDontCallDirectly,   Qt::QueuedConnection);
+    qgcApp()->addCompressedSignal(QMetaMethod::fromSignal(&StructureScanComplexItem::_updateFlightPathSegmentsSignal));
+
     _recalcLayerInfo();
 
-    if (!kmlFile.isEmpty()) {
-        _structurePolygon.loadKMLFile(kmlFile);
+    if (!kmlOrShpFile.isEmpty()) {
+        _structurePolygon.loadKMLOrSHPFile(kmlOrShpFile);
         _structurePolygon.setDirty(false);
     }
 
     setDirty(false);
-}
-
-void StructureScanComplexItem::_setScanDistance(double scanDistance)
-{
-    if (!qFuzzyCompare(_scanDistance, scanDistance)) {
-        _scanDistance = scanDistance;
-        emit complexDistanceChanged();
-    }
 }
 
 void StructureScanComplexItem::_setCameraShots(int cameraShots)
@@ -127,9 +159,12 @@ int StructureScanComplexItem::lastSequenceNumber(void) const
     //  Two commands for camera trigger start/stop
     int layerItemCount = _flightPolygon.count() + 1 + 2;
 
+    // Take into account the number of layers
     int multiLayerItemCount = layerItemCount * _layersFact.rawValue().toInt();
 
-    int itemCount = multiLayerItemCount + 2;    // +2 for ROI_WPNEXT_OFFSET and ROI_NONE commands
+    // +2 for ROI_WPNEXT_OFFSET and ROI_NONE commands
+    // +2 for entrance/exit waypoints
+    int itemCount = multiLayerItemCount + 2 + 2;
 
     return _sequenceNumber + itemCount - 1;
 }
@@ -147,15 +182,16 @@ void StructureScanComplexItem::save(QJsonArray&  missionItems)
     QJsonObject saveObject;
 
     // Header
-    saveObject[JsonHelper::jsonVersionKey] =                    2;
+    saveObject[JsonHelper::jsonVersionKey] =                    3;
     saveObject[VisualMissionItem::jsonTypeKey] =                VisualMissionItem::jsonTypeComplexItemValue;
     saveObject[ComplexMissionItem::jsonComplexItemTypeKey] =    jsonComplexItemTypeValue;
 
-    saveObject[altitudeName] =              _altitudeFact.rawValue().toDouble();
-    saveObject[structureHeightName] =       _structureHeightFact.rawValue().toDouble();
-    saveObject[_jsonAltitudeRelativeKey] =  _altitudeRelative;
-    saveObject[layersName] =                _layersFact.rawValue().toDouble();
-    saveObject[gimbalPitchName] =           _gimbalPitchFact.rawValue().toDouble();
+    saveObject[_entranceAltName] =      _entranceAltFact.rawValue().toDouble();
+    saveObject[scanBottomAltName] =     _scanBottomAltFact.rawValue().toDouble();
+    saveObject[structureHeightName] =   _structureHeightFact.rawValue().toDouble();
+    saveObject[layersName] =            _layersFact.rawValue().toDouble();
+    saveObject[gimbalPitchName] =       _gimbalPitchFact.rawValue().toDouble();
+    saveObject[startFromTopName] =      _startFromTopFact.rawValue().toBool();
 
     QJsonObject cameraCalcObject;
     _cameraCalc.save(cameraCalcObject);
@@ -182,12 +218,13 @@ bool StructureScanComplexItem::load(const QJsonObject& complexObject, int sequen
         { VisualMissionItem::jsonTypeKey,               QJsonValue::String, true },
         { ComplexMissionItem::jsonComplexItemTypeKey,   QJsonValue::String, true },
         { QGCMapPolygon::jsonPolygonKey,                QJsonValue::Array,  true },
-        { altitudeName,                                 QJsonValue::Double, true },
+        { scanBottomAltName,                            QJsonValue::Double, true },
         { structureHeightName,                          QJsonValue::Double, true },
-        { _jsonAltitudeRelativeKey,                     QJsonValue::Bool,   true },
         { layersName,                                   QJsonValue::Double, true },
-        { gimbalPitchName,                              QJsonValue::Double, false },    // This value was added after initial implementation so may be missing from older files
         { _jsonCameraCalcKey,                           QJsonValue::Object, true },
+        { _entranceAltName,                             QJsonValue::Double, true },
+        { gimbalPitchName,                              QJsonValue::Double, true },
+        { startFromTopName,                             QJsonValue::Bool,   true },
     };
     if (!JsonHelper::validateKeys(complexObject, keyInfoList, errorString)) {
         return false;
@@ -203,8 +240,8 @@ bool StructureScanComplexItem::load(const QJsonObject& complexObject, int sequen
     }
 
     int version = complexObject[JsonHelper::jsonVersionKey].toInt();
-    if (version != 2) {
-        errorString = tr("%1 complex item version %2 not supported").arg(jsonComplexItemTypeValue).arg(version);
+    if (version != 3) {
+        errorString = tr("%1 version %2 not supported").arg(jsonComplexItemTypeValue).arg(version);
         return false;
     }
 
@@ -215,17 +252,12 @@ bool StructureScanComplexItem::load(const QJsonObject& complexObject, int sequen
         return false;
     }
 
-    _altitudeFact.setRawValue       (complexObject[altitudeName].toDouble());
-    _layersFact.setRawValue         (complexObject[layersName].toDouble());
-    _structureHeightFact.setRawValue(complexObject[structureHeightName].toDouble());
-
-    _altitudeRelative = complexObject[_jsonAltitudeRelativeKey].toBool(true);
-
-    double gimbalPitchValue = 0;
-    if (complexObject.contains(gimbalPitchName)) {
-        gimbalPitchValue = complexObject[gimbalPitchName].toDouble();
-    }
-    _gimbalPitchFact.setRawValue(gimbalPitchValue);
+    _scanBottomAltFact.setRawValue      (complexObject[scanBottomAltName].toDouble());
+    _layersFact.setRawValue             (complexObject[layersName].toDouble());
+    _structureHeightFact.setRawValue    (complexObject[structureHeightName].toDouble());
+    _startFromTopFact.setRawValue       (complexObject[startFromTopName].toBool());
+    _entranceAltFact.setRawValue        (complexObject[startFromTopName].toDouble());
+    _gimbalPitchFact.setRawValue        (complexObject[gimbalPitchName].toDouble());
 
     if (!_structurePolygon.loadFromJson(complexObject, true /* required */, errorString)) {
         _structurePolygon.clear();
@@ -258,12 +290,17 @@ void StructureScanComplexItem::_flightPathChanged(void)
     }
     //-- Update bounding cube for airspace management control
     _setBoundingCube(QGCGeoBoundingCube(
-        QGeoCoordinate(north - 90.0, west - 180.0, bottom),
-        QGeoCoordinate(south - 90.0, east - 180.0, top)));
+                         QGeoCoordinate(north - 90.0, west - 180.0, bottom),
+                         QGeoCoordinate(south - 90.0, east - 180.0, top)));
 
     emit coordinateChanged(coordinate());
     emit exitCoordinateChanged(exitCoordinate());
     emit greatestDistanceToChanged();
+
+    if (_isIncomplete) {
+        _isIncomplete = false;
+        emit isIncompleteChanged();
+    }
 }
 
 double StructureScanComplexItem::greatestDistanceTo(const QGeoCoordinate &other) const
@@ -282,52 +319,78 @@ double StructureScanComplexItem::greatestDistanceTo(const QGeoCoordinate &other)
     return greatestDistance;
 }
 
-bool StructureScanComplexItem::specifiesCoordinate(void) const
-{
-    return _flightPolygon.count() > 2;
-}
-
 void StructureScanComplexItem::appendMissionItems(QList<MissionItem*>& items, QObject* missionItemParent)
 {
-    int seqNum = _sequenceNumber;
-    double baseAltitude = _altitudeFact.rawValue().toDouble();
+    int     seqNum =        _sequenceNumber;
+    bool    startFromTop =  _startFromTopFact.rawValue().toBool();
+    double  startAltitude = (startFromTop ? _structureHeightFact.rawValue().toDouble() : _scanBottomAltFact.rawValue().toDouble());
 
-    MissionItem* item = new MissionItem(seqNum++,
-                                        MAV_CMD_DO_SET_ROI_WPNEXT_OFFSET,
-                                        MAV_FRAME_MISSION,
-                                        0, 0, 0, 0,                             // param 1-4 not used
-                                        _gimbalPitchFact.rawValue().toDouble(),
-                                        0,                                      // Roll stays in standard orientation
-                                        90,                                     // 90 degreee yaw offset to point to structure
-                                        true,                                   // autoContinue
-                                        false,                                  // isCurrentItem
-                                        missionItemParent);
+    MissionItem* item = nullptr;
+
+    // Entrance waypoint
+    QGeoCoordinate entranceExitCoord = _flightPolygon.vertexCoordinate(_entryVertex);
+    item = new MissionItem(seqNum++,
+                           MAV_CMD_NAV_WAYPOINT,
+                           MAV_FRAME_GLOBAL_RELATIVE_ALT,
+                           0,                                          // No hold time
+                           0.0,                                        // No acceptance radius specified
+                           0.0,                                        // Pass through waypoint
+                           std::numeric_limits<double>::quiet_NaN(),   // Yaw unchanged
+                           entranceExitCoord.latitude(),
+                           entranceExitCoord.longitude(),
+                           _entranceAltFact.rawValue().toDouble(),
+                           true,                                       // autoContinue
+                           false,                                      // isCurrentItem
+                           missionItemParent);
     items.append(item);
+
+    // Point camera at structure
+    item = new MissionItem(seqNum++,
+                           MAV_CMD_DO_SET_ROI_WPNEXT_OFFSET,
+                           MAV_FRAME_MISSION,
+                           0, 0, 0, 0,                             // param 1-4 not used
+                           _gimbalPitchFact.rawValue().toDouble(),
+                           0,                                      // Roll stays in standard orientation
+                           90,                                     // 90 degreee yaw offset to point to structure
+                           true,                                   // autoContinue
+                           false,                                  // isCurrentItem
+                           missionItemParent);
+    items.append(item);
+
+    // Set up for the first layer
+    double  layerAltitude = startAltitude;
+    double  halfLayerHeight = _cameraCalc.adjustedFootprintFrontal()->rawValue().toDouble() / 2.0;
+    if (startFromTop) {
+        layerAltitude -= halfLayerHeight;
+    } else {
+        layerAltitude += halfLayerHeight;
+    }
 
     for (int layer=0; layer<_layersFact.rawValue().toInt(); layer++) {
         bool addTriggerStart = true;
-        // baseAltitude is the bottom of the first layer. Hence we need to move up half the distance of the camera footprint to center the camera
-        // within the layer.
-        double layerAltitude = baseAltitude + (_cameraCalc.adjustedFootprintFrontal()->rawValue().toDouble() / 2.0) + (layer * _cameraCalc.adjustedFootprintFrontal()->rawValue().toDouble());
 
-        for (int i=0; i<_flightPolygon.count(); i++) {
-            QGeoCoordinate vertexCoord = _flightPolygon.vertexCoordinate(i);
+        bool done = false;
+        int currentVertex = _entryVertex;
+        int processedVertices = 0;
+        do {
+            QGeoCoordinate vertexCoord = _flightPolygon.vertexCoordinate(currentVertex);
 
-            MissionItem* item = new MissionItem(seqNum++,
-                                                MAV_CMD_NAV_WAYPOINT,
-                                                _altitudeRelative ? MAV_FRAME_GLOBAL_RELATIVE_ALT : MAV_FRAME_GLOBAL,
-                                                0,                                          // No hold time
-                                                0.0,                                        // No acceptance radius specified
-                                                0.0,                                        // Pass through waypoint
-                                                90, //std::numeric_limits<double>::quiet_NaN(),   // Yaw unchanged
-                                                vertexCoord.latitude(),
-                                                vertexCoord.longitude(),
-                                                layerAltitude,
-                                                true,                                       // autoContinue
-                                                false,                                      // isCurrentItem
-                                                missionItemParent);
+            item = new MissionItem(seqNum++,
+                                   MAV_CMD_NAV_WAYPOINT,
+                                   MAV_FRAME_GLOBAL_RELATIVE_ALT,
+                                   0,                                          // No hold time
+                                   0.0,                                        // No acceptance radius specified
+                                   0.0,                                        // Pass through waypoint
+                                   std::numeric_limits<double>::quiet_NaN(),   // Yaw unchanged
+                                   vertexCoord.latitude(),
+                                   vertexCoord.longitude(),
+                                   layerAltitude,
+                                   true,                                       // autoContinue
+                                   false,                                      // isCurrentItem
+                                   missionItemParent);
             items.append(item);
 
+            // Start camera triggering after first waypoint in layer
             if (addTriggerStart) {
                 addTriggerStart = false;
                 item = new MissionItem(seqNum++,
@@ -342,25 +405,19 @@ void StructureScanComplexItem::appendMissionItems(QList<MissionItem*>& items, QO
                                        missionItemParent);
                 items.append(item);
             }
-        }
 
-        QGeoCoordinate vertexCoord = _flightPolygon.vertexCoordinate(0);
+            // Move to next vertext
+            currentVertex++;
+            if (currentVertex >= _flightPolygon.count()) {
+                currentVertex = 0;
+            }
 
-        MissionItem* item = new MissionItem(seqNum++,
-                                            MAV_CMD_NAV_WAYPOINT,
-                                            _altitudeRelative ? MAV_FRAME_GLOBAL_RELATIVE_ALT : MAV_FRAME_GLOBAL,
-                                            0,                                          // No hold time
-                                            0.0,                                        // No acceptance radius specified
-                                            0.0,                                        // Pass through waypoint
-                                            std::numeric_limits<double>::quiet_NaN(),   // Yaw unchanged
-                                            vertexCoord.latitude(),
-                                            vertexCoord.longitude(),
-                                            layerAltitude,
-                                            true,                                       // autoContinue
-                                            false,                                      // isCurrentItem
-                                            missionItemParent);
-        items.append(item);
+            // Have we processed all the vertices
+            processedVertices++;
+            done = processedVertices == _flightPolygon.count() + 1;
+        } while (!done);
 
+        // Stop camera triggering after last waypoint in layer
         item = new MissionItem(seqNum++,
                                MAV_CMD_DO_SET_CAM_TRIGG_DIST,
                                MAV_FRAME_MISSION,
@@ -372,8 +429,16 @@ void StructureScanComplexItem::appendMissionItems(QList<MissionItem*>& items, QO
                                false,       // isCurrentItem
                                missionItemParent);
         items.append(item);
+
+        // Move to next layer altitude
+        if (startFromTop) {
+            layerAltitude -= halfLayerHeight * 2;
+        } else {
+            layerAltitude += halfLayerHeight * 2;
+        }
     }
 
+    // Return camera to neutral position
     item = new MissionItem(seqNum++,
                            MAV_CMD_DO_SET_ROI_NONE,
                            MAV_FRAME_MISSION,
@@ -382,18 +447,35 @@ void StructureScanComplexItem::appendMissionItems(QList<MissionItem*>& items, QO
                            false,                              // isCurrentItem
                            missionItemParent);
     items.append(item);
+
+    // Exit waypoint
+    item = new MissionItem(seqNum++,
+                           MAV_CMD_NAV_WAYPOINT,
+                           MAV_FRAME_GLOBAL_RELATIVE_ALT,
+                           0,                                          // No hold time
+                           0.0,                                        // No acceptance radius specified
+                           0.0,                                        // Pass through waypoint
+                           std::numeric_limits<double>::quiet_NaN(),   // Yaw unchanged
+                           entranceExitCoord.latitude(),
+                           entranceExitCoord.longitude(),
+                           _entranceAltFact.rawValue().toDouble(),
+                           true,                                       // autoContinue
+                           false,                                      // isCurrentItem
+                           missionItemParent);
+    items.append(item);
+
 }
 
 int StructureScanComplexItem::cameraShots(void) const
 {
-    return true /*_triggerCamera()*/ ? _cameraShots : 0;
+    return _cameraShots;
 }
 
 void StructureScanComplexItem::setMissionFlightStatus(MissionController::MissionFlightStatus_t& missionFlightStatus)
 {
     ComplexMissionItem::setMissionFlightStatus(missionFlightStatus);
-    if (!qFuzzyCompare(_cruiseSpeed, missionFlightStatus.vehicleSpeed)) {
-        _cruiseSpeed = missionFlightStatus.vehicleSpeed;
+    if (!QGC::fuzzyCompare(_vehicleSpeed, missionFlightStatus.vehicleSpeed)) {
+        _vehicleSpeed = missionFlightStatus.vehicleSpeed;
         emit timeBetweenShotsChanged();
     }
 }
@@ -405,7 +487,7 @@ void StructureScanComplexItem::_setDirty(void)
 
 void StructureScanComplexItem::applyNewAltitude(double newAltitude)
 {
-    _altitudeFact.setRawValue(newAltitude);
+    _entranceAltFact.setRawValue(newAltitude);
 }
 
 void StructureScanComplexItem::_polygonDirtyChanged(bool dirty)
@@ -417,22 +499,17 @@ void StructureScanComplexItem::_polygonDirtyChanged(bool dirty)
 
 double StructureScanComplexItem::timeBetweenShots(void)
 {
-    return _cruiseSpeed == 0 ? 0 : _cameraCalc.adjustedFootprintSide()->rawValue().toDouble() / _cruiseSpeed;
+    return _vehicleSpeed == 0 ? 0 : _cameraCalc.adjustedFootprintSide()->rawValue().toDouble() / _vehicleSpeed;
 }
 
 QGeoCoordinate StructureScanComplexItem::coordinate(void) const
 {
     if (_flightPolygon.count() > 0) {
-        int entryVertex = qMax(qMin(_entryVertex, _flightPolygon.count() - 1), 0);
-        return _flightPolygon.vertexCoordinate(entryVertex);
+        QGeoCoordinate coord = _flightPolygon.vertexCoordinate(_entryVertex);
+        return coord;
     } else {
         return QGeoCoordinate();
     }
-}
-
-QGeoCoordinate StructureScanComplexItem::exitCoordinate(void) const
-{
-    return coordinate();
 }
 
 void StructureScanComplexItem::_updateCoordinateAltitudes(void)
@@ -453,8 +530,22 @@ void StructureScanComplexItem::rotateEntryPoint(void)
 
 void StructureScanComplexItem::_rebuildFlightPolygon(void)
 {
+    // While this is happening all hell breaks loose signal-wise which can cause a bad vertex reference.
+    // So we reset to a safe value first and then double check validity when putting it back
+    int savedEntryVertex = _entryVertex;
+    _entryVertex = 0;
+
     _flightPolygon = _structurePolygon;
     _flightPolygon.offset(_cameraCalc.distanceToSurface()->rawValue().toDouble());
+
+    if (savedEntryVertex >= _flightPolygon.count()) {
+        _entryVertex = 0;
+    } else {
+        _entryVertex = savedEntryVertex;
+    }
+
+    emit coordinateChanged(coordinate());
+    emit exitCoordinateChanged(exitCoordinate());
 }
 
 void StructureScanComplexItem::_recalcCameraShots(void)
@@ -486,29 +577,12 @@ void StructureScanComplexItem::_recalcCameraShots(void)
     _setCameraShots(cameraShots * _layersFact.rawValue().toInt());
 }
 
-void StructureScanComplexItem::setAltitudeRelative(bool altitudeRelative)
-{
-    if (altitudeRelative != _altitudeRelative) {
-        _altitudeRelative = altitudeRelative;
-        emit altitudeRelativeChanged(altitudeRelative);
-    }
-}
-
 void StructureScanComplexItem::_recalcLayerInfo(void)
 {
-    if (_cameraCalc.isManualCamera()) {
-        // Structure height is calculated from layer count, layer height.
-        _structureHeightFact.setSendValueChangedSignals(false);
-        _structureHeightFact.setRawValue(_layersFact.rawValue().toInt() * _cameraCalc.adjustedFootprintFrontal()->rawValue().toDouble());
-        _structureHeightFact.clearDeferredValueChangeSignal();
-        _structureHeightFact.setSendValueChangedSignals(true);
-    } else {
-        // Layer count is calculated from structure and layer heights
-        _layersFact.setSendValueChangedSignals(false);
-        _layersFact.setRawValue(qCeil(_structureHeightFact.rawValue().toDouble() / _cameraCalc.adjustedFootprintFrontal()->rawValue().toDouble()));
-        _layersFact.clearDeferredValueChangeSignal();
-        _layersFact.setSendValueChangedSignals(true);
-    }
+    double surfaceHeight = qMax(_structureHeightFact.rawValue().toDouble() - _scanBottomAltFact.rawValue().toDouble(), 0.0);
+
+    // Layer count is calculated from surface and layer heights
+    _layersFact.setRawValue(qMax(qCeil(surfaceHeight / _cameraCalc.adjustedFootprintFrontal()->rawValue().toDouble()), 1));
 }
 
 void StructureScanComplexItem::_updateGimbalPitch(void)
@@ -517,3 +591,192 @@ void StructureScanComplexItem::_updateGimbalPitch(void)
         _gimbalPitchFact.setRawValue(0);
     }
 }
+
+double StructureScanComplexItem::bottomFlightAlt(void) const
+{
+    if (_startFromTopFact.rawValue().toBool()) {
+        // Structure Height minus the topmost layers
+        double  layerIncrement = (_cameraCalc.adjustedFootprintFrontal()->rawValue().toDouble() / 2.0) + ((_layersFact.rawValue().toInt() - 1) * _cameraCalc.adjustedFootprintFrontal()->rawValue().toDouble());
+        return _structureHeightFact.rawValue().toDouble() - layerIncrement;
+    } else {
+        // Bottom alt plus half the height of a layer
+        double  layerIncrement = _cameraCalc.adjustedFootprintFrontal()->rawValue().toDouble() / 2.0;
+        return _scanBottomAltFact.rawValue().toDouble() + layerIncrement;
+    }
+}
+
+double StructureScanComplexItem:: topFlightAlt(void) const
+{
+    if (_startFromTopFact.rawValue().toBool()) {
+        // Structure Height minus half the layer height
+        double  layerIncrement = _cameraCalc.adjustedFootprintFrontal()->rawValue().toDouble() / 2.0;
+        return _structureHeightFact.rawValue().toDouble() - layerIncrement;
+    } else {
+        // Bottom alt plus all layers
+        double  layerIncrement = (_cameraCalc.adjustedFootprintFrontal()->rawValue().toDouble() / 2.0) + ((_layersFact.rawValue().toInt() - 1) * _cameraCalc.adjustedFootprintFrontal()->rawValue().toDouble());
+        return _scanBottomAltFact.rawValue().toDouble() + layerIncrement;
+    }
+}
+
+void StructureScanComplexItem::_signalTopBottomAltChanged(void)
+{
+    emit topFlightAltChanged();
+    emit bottomFlightAltChanged();
+}
+
+void StructureScanComplexItem::_recalcScanDistance()
+{
+    double scanDistance = 0;
+
+    if (_flightPolygon.count() > 2) {
+        QList<QGeoCoordinate> vertices = _flightPolygon.coordinateList();
+        for (int i=0; i<vertices.count() - 1; i++) {
+            scanDistance += vertices[i].distanceTo(vertices[i+1]);
+        }
+        scanDistance += vertices.last().distanceTo(vertices.first());
+
+        scanDistance *= _layersFact.rawValue().toInt();
+
+        double surfaceHeight = qMax(_structureHeightFact.rawValue().toDouble() - _scanBottomAltFact.rawValue().toDouble(), 0.0);
+        scanDistance += surfaceHeight;
+
+        qCDebug(StructureScanComplexItemLog) << "StructureScanComplexItem--_recalcScanDistance layers: "
+                                             << _layersFact.rawValue().toInt() << " structure height: " << surfaceHeight
+                                             << " scanDistance: " << _scanDistance;
+    }
+
+    if (!QGC::fuzzyCompare(_scanDistance, scanDistance)) {
+        _scanDistance = scanDistance;
+        emit complexDistanceChanged();
+    }
+
+}
+
+StructureScanComplexItem::ReadyForSaveState StructureScanComplexItem::readyForSaveState(void) const
+{
+    return _structurePolygon.isValid() && !_wizardMode ? ReadyForSave : NotReadyForSaveData;
+}
+
+void StructureScanComplexItem::_updateWizardMode(void)
+{
+    if (_structurePolygon.isValid() && !_structurePolygon.traceMode()) {
+        setWizardMode(false);
+    }
+}
+
+double StructureScanComplexItem::amslEntryAlt(void) const
+{
+    return _entranceAltFact.rawValue().toDouble() + _missionController->plannedHomePosition().altitude();
+}
+
+// Never call this method directly. If you want to update the flight segments you emit _updateFlightPathSegmentsSignal()
+void StructureScanComplexItem::_updateFlightPathSegmentsDontCallDirectly(void)
+{
+    // Generation of flight segments depends on the following values:
+    //  _flightPolygon,
+    //  _startFromTopFact
+    //  _structureHeightFact,
+    //  _scanBottomAltFact
+    //  _cameraCalc.adjustedFootprintFrontal()
+    //  _missionController->plannedHomePosition().altitude()
+    //  _entranceAltFact
+    //  _layersFact
+    // Any changes to these values must rebuild the segments
+
+    if (_cTerrainCollisionSegments != 0) {
+        _cTerrainCollisionSegments = 0;
+        emit terrainCollisionChanged(false);
+        _structurePolygon.setShowAltColor(false);
+    }
+
+    _flightPathSegments.beginReset();
+    _flightPathSegments.clearAndDeleteContents();
+
+    if (_flightPolygon.count() > 2) {
+
+        bool    startFromTop =  _startFromTopFact.rawValue().toBool();
+        double  startAltitude = (startFromTop ? _structureHeightFact.rawValue().toDouble() : _scanBottomAltFact.rawValue().toDouble());
+
+        // Set up for the first layer
+        double  prevLayerAltitude = 0;
+        double  layerAltitude = startAltitude;
+        double  halfLayerHeight = _cameraCalc.adjustedFootprintFrontal()->rawValue().toDouble() / 2.0;
+        if (startFromTop) {
+            layerAltitude -= halfLayerHeight;
+        } else {
+            layerAltitude += halfLayerHeight;
+        }
+        layerAltitude += _missionController->plannedHomePosition().altitude();
+
+        QGeoCoordinate layerEntranceCoord = _flightPolygon.vertexCoordinate(_entryVertex);
+
+        // Entrance to first layer entrance
+        double entranceAlt = _entranceAltFact.rawValue().toDouble() + _missionController->plannedHomePosition().altitude();
+        _appendFlightPathSegment(layerEntranceCoord, entranceAlt, layerEntranceCoord, layerAltitude);
+
+        // Segments for each layer
+        for (int layerIndex=0; layerIndex<_layersFact.rawValue().toInt(); layerIndex++) {
+            // Move from one layer to the next
+            if (layerIndex != 0) {
+                _appendFlightPathSegment(layerEntranceCoord, prevLayerAltitude, layerEntranceCoord, layerAltitude);
+            }
+
+            QGeoCoordinate prevCoord = QGeoCoordinate();
+            for (const QGeoCoordinate& coord: _flightPolygon.coordinateList()) {
+                if (prevCoord.isValid()) {
+                    _appendFlightPathSegment(prevCoord, layerAltitude, coord, layerAltitude);
+                }
+                prevCoord = coord;
+            }
+            _appendFlightPathSegment(_flightPolygon.coordinateList().last(), layerAltitude, _flightPolygon.coordinateList().first(), layerAltitude);
+
+            // Move to next layer altitude
+            prevLayerAltitude = layerAltitude;
+            if (startFromTop) {
+                layerAltitude -= halfLayerHeight * 2;
+            } else {
+                layerAltitude += halfLayerHeight * 2;
+            }
+        }
+
+        // Last layer exit back to entrance
+        _appendFlightPathSegment(layerEntranceCoord, prevLayerAltitude, layerEntranceCoord, entranceAlt);
+    }
+
+    _flightPathSegments.endReset();
+
+    if (_cTerrainCollisionSegments != 0) {
+        emit terrainCollisionChanged(true);
+    }
+
+    _masterController->missionController()->recalcTerrainProfile();
+}
+
+double StructureScanComplexItem::minAMSLAltitude(void) const
+{
+    double minAlt = qMin(bottomFlightAlt(), _entranceAltFact.rawValue().toDouble());
+    return minAlt + _missionController->plannedHomePosition().altitude();
+}
+
+double StructureScanComplexItem::maxAMSLAltitude(void) const
+{
+    double maxAlt = qMax(topFlightAlt(), _entranceAltFact.rawValue().toDouble());
+    return maxAlt + _missionController->plannedHomePosition().altitude();
+}
+
+void StructureScanComplexItem::_minAMSLAltChanged(void)
+{
+    emit minAMSLAltitudeChanged(minAMSLAltitude());
+}
+
+void StructureScanComplexItem::_maxAMSLAltChanged(void)
+{
+    emit maxAMSLAltitudeChanged(maxAMSLAltitude());
+}
+
+void StructureScanComplexItem::_segmentTerrainCollisionChanged(bool terrainCollision)
+{
+    ComplexMissionItem::_segmentTerrainCollisionChanged(terrainCollision);
+    _structurePolygon.setShowAltColor(_cTerrainCollisionSegments != 0);
+}
+

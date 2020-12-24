@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   (c) 2009-2016 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
+ * (c) 2009-2020 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
  *
  * QGroundControl is licensed according to the terms in the file
  * COPYING.md in the root of the source code directory.
@@ -34,6 +34,9 @@ void GPSManager::connectGPS(const QString& device, const QString& gps_type)
     if (gps_type.contains("trimble",  Qt::CaseInsensitive)) {
         type = GPSProvider::GPSType::trimble;
         qCDebug(RTKGPSLog) << "Connecting Trimble device";
+    } else if (gps_type.contains("septentrio",  Qt::CaseInsensitive)) {
+        type = GPSProvider::GPSType::septentrio;
+        qCDebug(RTKGPSLog) << "Connecting Septentrio device";
     } else {
         type = GPSProvider::GPSType::u_blox;
         qCDebug(RTKGPSLog) << "Connecting U-blox device";
@@ -81,8 +84,8 @@ void GPSManager::disconnectGPS(void)
     if (_rtcmMavlink) {
         delete(_rtcmMavlink);
     }
-    _gpsProvider = NULL;
-    _rtcmMavlink = NULL;
+    _gpsProvider = nullptr;
+    _rtcmMavlink = nullptr;
 }
 
 

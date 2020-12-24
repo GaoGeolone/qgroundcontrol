@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   (c) 2009-2016 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
+ * (c) 2009-2020 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
  *
  * QGroundControl is licensed according to the terms in the file
  * COPYING.md in the root of the source code directory.
@@ -24,10 +24,9 @@ SetupPage {
     id:                 subFramePage
     pageComponent:      subFramePageComponent
 
-    property var  _activeVehicle:       QGroundControl.multiVehicleManager.activeVehicle
-    property bool _oldFW:   _activeVehicle.versionCompare(3 ,5 ,2) < 0
+    property bool _oldFW:   globals.activeVehicle.versionCompare(3 ,5 ,2) < 0
 
-    APMAirframeComponentController { id: controller; factPanel: subFramePage.viewPanel }
+    APMAirframeComponentController { id: controller; }
 
     Component {
         id: subFramePageComponent
@@ -104,6 +103,12 @@ SetupPage {
                     resource: "qrc:///qmlimages/Frames/SimpleROV-4.png"
                     paramValue: 5
                 }
+
+                ListElement {
+                    name: "SimpleROV-5"
+                    resource: "qrc:///qmlimages/Frames/SimpleROV-5.png"
+                    paramValue: 6
+                }
             }
 
             Item {
@@ -115,7 +120,7 @@ SetupPage {
                     id: defaultsButton
                     anchors.left: parent.left
                     text:       qsTr("Load Vehicle Default Parameters")
-                    onClicked:  showDialog(selectParamFileDialogComponent, qsTr("Load Vehicle Default Parameters"), qgcView.showDialogDefaultWidth, StandardButton.Close)
+                    onClicked:  mainWindow.showComponentDialog(selectParamFileDialogComponent, qsTr("Load Vehicle Default Parameters"), mainWindow.showDialogDefaultWidth, StandardButton.Close)
                 }
             }
 

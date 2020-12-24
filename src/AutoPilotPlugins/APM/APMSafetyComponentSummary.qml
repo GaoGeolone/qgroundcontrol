@@ -6,14 +6,10 @@ import QGroundControl.FactControls 1.0
 import QGroundControl.Controls 1.0
 import QGroundControl.Palette 1.0
 
-FactPanel {
-    id:             panel
+Item {
     anchors.fill:   parent
-    color:          qgcPal.windowShadeDark
 
-    QGCPalette { id: qgcPal; colorGroupEnabled: enabled }
-    FactPanelController { id: controller; factPanel: panel }
-
+    FactPanelController { id: controller; }
 
     property Fact _copterFenceAction:       controller.getParameterFact(-1, "FENCE_ACTION", false /* reportMissing */)
     property Fact _copterFenceEnable:       controller.getParameterFact(-1, "FENCE_ENABLE", false /* reportMissing */)
@@ -31,19 +27,22 @@ FactPanel {
     property Fact _batt2FSCritAct:          controller.getParameterFact(-1, "BATT2_FS_CRT_ACT", false /* reportMissing */)
     property bool _batt1FSCritActAvailable: controller.parameterExists(-1, "BATT_FS_CRT_ACT")
 
+    property bool _roverFirmware:           controller.parameterExists(-1, "MODE1") // This catches all usage of ArduRover firmware vehicle types: Rover, Boat...
+
+
     Column {
         anchors.fill:       parent
 
         VehicleSummaryRow {
             labelText: qsTr("Arming Checks:")
-            valueText: fact.value & 1 ? qsTr("Enabled") : qsTr("Some disabled")
+            valueText: fact ? (fact.value & 1 ? qsTr("Enabled") : qsTr("Some disabled")) : ""
 
             property Fact fact: controller.getParameterFact(-1, "ARMING_CHECK")
         }
 
         VehicleSummaryRow {
             labelText:  qsTr("Throttle failsafe:")
-            valueText:  fact.enumStringValue
+            valueText:  fact ? fact.enumStringValue : ""
             visible:    controller.vehicle.multiRotor
 
             property Fact fact: controller.getParameterFact(-1, "FS_THR_ENABLE", false /* reportMissing */)
@@ -51,7 +50,7 @@ FactPanel {
 
         VehicleSummaryRow {
             labelText:  qsTr("Throttle failsafe:")
-            valueText:  fact.enumStringValue
+            valueText:  fact ? fact.enumStringValue : ""
             visible:    controller.vehicle.fixedWing
 
             property Fact fact: controller.getParameterFact(-1, "THR_FAILSAFE", false /* reportMissing */)
@@ -59,24 +58,24 @@ FactPanel {
 
         VehicleSummaryRow {
             labelText:  qsTr("Throttle failsafe:")
-            valueText:  fact.enumStringValue
-            visible:    controller.vehicle.rover
+            valueText:  fact ? fact.enumStringValue : ""
+            visible:    _roverFirmware
 
             property Fact fact: controller.getParameterFact(-1, "FS_THR_ENABLE", false /* reportMissing */)
         }
 
         VehicleSummaryRow {
             labelText:  qsTr("Failsafe Action:")
-            valueText:  fact.enumStringValue
-            visible:    controller.vehicle.rover
+            valueText:  fact ? fact.enumStringValue : ""
+            visible:    _roverFirmware
 
             property Fact fact: controller.getParameterFact(-1, "FS_ACTION", false /* reportMissing */)
         }
 
         VehicleSummaryRow {
             labelText:  qsTr("Failsafe Crash Check:")
-            valueText:  fact.enumStringValue
-            visible:    controller.vehicle.rover
+            valueText:  fact ? fact.enumStringValue : ""
+            visible:    _roverFirmware
 
             property Fact fact: controller.getParameterFact(-1, "FS_CRASH_CHECK", false /* reportMissing */)
         }
@@ -107,11 +106,22 @@ FactPanel {
 
         VehicleSummaryRow {
             labelText: qsTr("GeoFence:")
-            valueText: _copterFenceEnable.value == 0 || _copterFenceType == 0 ?
-                           qsTr("Disabled") :
-                           (_copterFenceType.value == 1 ?
-                                qsTr("Altitude") :
-                                (_copterFenceType.value == 2 ? qsTr("Circle") : qsTr("Altitude,Circle")))
+            valueText: {
+                if(_copterFenceEnable && _copterFenceType) {
+                    if(_copterFenceEnable.value == 0 || _copterFenceType == 0) {
+                        return qsTr("Disabled")
+                    } else {
+                        if(_copterFenceType.value == 1) {
+                            return qsTr("Altitude")
+                        }
+                        if(_copterFenceType.value == 2) {
+                            return qsTr("Circle")
+                        }
+                        return qsTr("Altitude,Circle")
+                    }
+                }
+                return ""
+            }
             visible: controller.vehicle.multiRotor
         }
 
@@ -125,16 +135,16 @@ FactPanel {
 
         VehicleSummaryRow {
             labelText:  qsTr("RTL min alt:")
-            valueText:  fact.value == 0 ? qsTr("current") : fact.valueString + " " + fact.units
+            valueText:  fact ? (fact.value == 0 ? qsTr("current") : fact.valueString + " " + fact.units) : ""
             visible:    controller.vehicle.multiRotor
 
             property Fact fact: controller.getParameterFact(-1, "RTL_ALT", false /* reportMissing */)
         }
 
         VehicleSummaryRow {
-            labelText: qsTr("RTL min alt:")
-            valueText: fact.value < 0 ? qsTr("current") : fact.valueString + " " + fact.units
-            visible: controller.vehicle.fixedWing
+            labelText:  qsTr("RTL min alt:")
+            valueText:  fact ? (fact.value < 0 ? qsTr("current") : fact.valueString + " " + fact.units) : ""
+            visible:    controller.vehicle.fixedWing
 
             property Fact fact: controller.getParameterFact(-1, "ALT_HOLD_RTL", false /* reportMissing */)
         }

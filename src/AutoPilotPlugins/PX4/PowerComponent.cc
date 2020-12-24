@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   (c) 2009-2016 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
+ * (c) 2009-2020 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
  *
  * QGroundControl is licensed according to the terms in the file
  * COPYING.md in the root of the source code directory.
@@ -9,10 +9,9 @@
 
 
 /// @file
-///     @author Gus Grubba <mavlink@grubba.com>
+///     @author Gus Grubba <gus@auterion.com>
 
 #include "PowerComponent.h"
-#include "QGCQmlWidgetHolder.h"
 #include "PX4AutoPilotPlugin.h"
 
 PowerComponent::PowerComponent(Vehicle* vehicle, AutoPilotPlugin* autopilot, QObject* parent) :
@@ -50,10 +49,7 @@ bool PowerComponent::setupComplete(void) const
 
 QStringList PowerComponent::setupCompleteChangedTriggerList(void) const
 {
-    QStringList triggerList;
-
-    triggerList << "BAT_V_CHARGED" << "BAT_V_EMPTY" << "BAT_N_CELLS";
-    return triggerList;
+    return {"BAT_V_CHARGED", "BAT_V_EMPTY", "BAT_N_CELLS"};
 }
 
 QUrl PowerComponent::setupSource(void) const

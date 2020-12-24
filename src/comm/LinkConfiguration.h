@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   (c) 2009-2018 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
+ * (c) 2009-2020 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
  *
  * QGroundControl is licensed according to the terms in the file
  * COPYING.md in the root of the source code directory.
@@ -11,10 +11,11 @@
 
 #include <QSettings>
 
+#include <memory>
+
 class LinkInterface;
 
 /// Interface holding link specific settings.
-
 class LinkConfiguration : public QObject
 {
     Q_OBJECT
@@ -25,22 +26,21 @@ public:
     virtual ~LinkConfiguration() {}
 
     Q_PROPERTY(QString          name                READ name           WRITE setName           NOTIFY nameChanged)
-    Q_PROPERTY(LinkInterface*   link                READ link           WRITE setLink           NOTIFY linkChanged)
+    Q_PROPERTY(LinkInterface*   link                READ link                                   NOTIFY linkChanged)
     Q_PROPERTY(LinkType         linkType            READ type                                   CONSTANT)
     Q_PROPERTY(bool             dynamic             READ isDynamic      WRITE setDynamic        NOTIFY dynamicChanged)
     Q_PROPERTY(bool             autoConnect         READ isAutoConnect  WRITE setAutoConnect    NOTIFY autoConnectChanged)
-    Q_PROPERTY(bool             autoConnectAllowed  READ isAutoConnectAllowed                   CONSTANT)
     Q_PROPERTY(QString          settingsURL         READ settingsURL                            CONSTANT)
+    Q_PROPERTY(QString          settingsTitle       READ settingsTitle                          CONSTANT)
     Q_PROPERTY(bool             highLatency         READ isHighLatency  WRITE setHighLatency    NOTIFY highLatencyChanged)
-    Q_PROPERTY(bool             highLatencyAllowed  READ isHighLatencyAllowed                   CONSTANT)
 
     // Property accessors
 
     QString         name(void) const { return _name; }
-    LinkInterface*  link(void)  { return _link; }
+    LinkInterface*  link(void)  { return _link.lock().get(); }
 
     void            setName(const QString name);
-    void            setLink(LinkInterface* link);
+    void            setLink(std::shared_ptr<LinkInterface> link);
 
     ///  The link types supported by QGC
     ///  Any changes here MUST be reflected in LinkManager::linkTypeStrings()
@@ -56,26 +56,13 @@ public:
 #ifdef QT_DEBUG
         TypeMock,       ///< Mock Link for Unitesting
 #endif
-#ifndef __mobile__
         TypeLogReplay,
-#endif
         TypeLast        // Last type value (type >= TypeLast == invalid)
     };
     Q_ENUM(LinkType)
 
-    /*!
-     *
-     * Is this a dynamic configuration? (non persistent)
-     * @return True if this is an automatically added configuration.
-     */
-    bool isDynamic() { return _dynamic; }
-
-    /*!
-     *
-     * Is this an Auto Connect configuration?
-     * @return True if this is an Auto Connect configuration (connects automatically at boot time).
-     */
-    bool isAutoConnect() { return _autoConnect; }
+    bool isDynamic      () { return _dynamic; }     ///< Not persisted
+    bool isAutoConnect  () { return _autoConnect; }
 
     /*!
      *
@@ -100,20 +87,6 @@ public:
     void setHighLatency(bool hl = false) { _highLatency = hl; emit highLatencyChanged(); }
 
     /// Virtual Methods
-
-    /*!
-     *
-     * Is Auto Connect allowed for this type?
-     * @return True if this type can be set as an Auto Connect configuration
-     */
-    virtual bool isAutoConnectAllowed() { return false; }
-
-    /*!
-     *
-     * Is High Latency allowed for this type?
-     * @return True if this type can be set as an High Latency configuration
-     */
-    virtual bool isHighLatencyAllowed() { return false; }
 
     /*!
      * @brief Connection type
@@ -146,14 +119,14 @@ public:
      *
      * Pure virtual method providing the URL for the (QML) settings dialog
      */
-    virtual QString settingsURL() = 0;
+    virtual QString settingsURL     () = 0;
 
     /*!
-     * @brief Update settings
+     * @brief Settings Title
      *
-     * After editing the settings, use this method to tell the connected link (if any) to reload its configuration.
+     * Pure virtual method providing the Title for the (QML) settings dialog
      */
-    virtual void updateSettings() {}
+    virtual QString settingsTitle   () = 0;
 
     /*!
      * @brief Copy instance data
@@ -193,11 +166,12 @@ signals:
     void nameChanged        (const QString& name);
     void dynamicChanged     ();
     void autoConnectChanged ();
-    void linkChanged        (LinkInterface* link);
     void highLatencyChanged ();
+    void linkChanged        ();
 
 protected:
-    LinkInterface* _link; ///< Link currently using this configuration (if any)
+    std::weak_ptr<LinkInterface> _link; ///< Link currently using this configuration (if any)
+
 private:
     QString _name;
     bool    _dynamic;       ///< A connection added automatically and not persistent (unless it's edited).
@@ -205,5 +179,6 @@ private:
     bool    _highLatency;
 };
 
-typedef QSharedPointer<LinkConfiguration> SharedLinkConfigurationPointer;
+typedef std::shared_ptr<LinkConfiguration>  SharedLinkConfigurationPtr;
+typedef std::weak_ptr<LinkConfiguration>    WeakLinkConfigurationPtr;
 

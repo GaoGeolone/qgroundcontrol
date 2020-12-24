@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   (c) 2009-2016 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
+ * (c) 2009-2020 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
  *
  * QGroundControl is licensed according to the terms in the file
  * COPYING.md in the root of the source code directory.
@@ -17,9 +17,9 @@ class SettingsFact : public Fact
     Q_OBJECT
     
 public:
-    SettingsFact(QObject* parent = NULL);
-    SettingsFact(QString settingsGroup, FactMetaData* metaData, QObject* parent = NULL);
-    SettingsFact(const SettingsFact& other, QObject* parent = NULL);
+    SettingsFact(QObject* parent = nullptr);
+    SettingsFact(QString settingsGroup, FactMetaData* metaData, QObject* parent = nullptr);
+    SettingsFact(const SettingsFact& other, QObject* parent = nullptr);
 
     const SettingsFact& operator=(const SettingsFact& other);
 
