@@ -92,6 +92,17 @@ public enum UsbSerialProber {
         }
     },
 
+    QINHENG_SERIAL {
+        @Override
+        public List<UsbSerialDriver> probe(final UsbManager manager, final UsbDevice usbDevice) {
+            if (!testIfSupported(usbDevice, Ch34xSerialDriver.getSupportedDevices())) {
+               return Collections.emptyList();
+            }
+            final UsbSerialDriver driver = new Ch34xSerialDriver(usbDevice);
+            return Collections.singletonList(driver);
+        }
+    },
+
     PROLIFIC_SERIAL {
         @Override
         public List<UsbSerialDriver> probe(final UsbManager manager, final UsbDevice usbDevice) {
