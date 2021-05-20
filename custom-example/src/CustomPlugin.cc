@@ -126,6 +126,22 @@ CustomPlugin::settingsPages()
     return _customSettingsList;
 }
 
+//Geo: made for scopecamera
+//-----------------------------------------------------------------------------
+QVariantList&
+CustomPlugin::scopePages()
+{
+    if(_customSettingsList.isEmpty()) {
+        _addSettingsEntry(tr("Camera"),     "qrc:/qml/CameraOnAndroid.qml",     "qrc:/res/gear-white.svg");
+        _addSettingsEntry(tr("ScopeData"),  "qrc:/qml/LinkSettings.qml",        "qrc:/res/waves.svg");
+#if defined(QT_DEBUG)
+        //-- These are always present on Debug builds
+        _addSettingsEntry(tr("Debug"),   "qrc:/qml/MockLink.qml");
+#endif
+    }
+    return _customSettingsList;
+}
+
 QGCOptions* CustomPlugin::options()
 {
     return _options;

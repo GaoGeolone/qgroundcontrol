@@ -164,6 +164,11 @@ ApplicationWindow {
         showTool(qsTr("Application Settings"), "AppSettings.qml", "/res/QGCLogoWhite")
     }
 
+    //------add scope view with camera with position and altitude
+    function showScopeCameraTool() {
+        showTool(qsTr("Camera Scope"), "ScopeCamera.qml", "/qmlimages/roi.svg")
+    }
+
     //-------------------------------------------------------------------------
     //-- Global simple message dialog
 
@@ -402,6 +407,22 @@ ApplicationWindow {
                         onClicked: {
                             if (!mainWindow.preventViewSwitch()) {
                                 mainWindow.showSettingsTool()
+                                toolSelectDrawer.visible = false
+                            }
+                        }
+                    }
+                    //------add scope view with camera with position and altitude
+                    SubMenuButton {
+                        id:                 scopeButton
+                        height:             toolSelectDrawer._toolButtonHeight
+                        Layout.fillWidth:   true
+                        text:               qsTr("Camera Scope")
+                        imageResource:      "/qmlimages/roi.svg"
+                        imageColor:         "transparent"
+                        visible:            !QGroundControl.corePlugin.options.combineSettingsAndSetup
+                        onClicked: {
+                            if (!mainWindow.preventViewSwitch()) {
+                                mainWindow.showScopeCameraTool()
                                 toolSelectDrawer.visible = false
                             }
                         }

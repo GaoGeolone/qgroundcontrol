@@ -108,7 +108,8 @@
 #include "ToolStripActionList.h"
 #include "QGCMAVLink.h"
 #include "VehicleLinkManager.h"
-
+//Geo: This is for ScopeCamera
+#include"ScopeCamera.h"
 #if defined(QGC_ENABLE_PAIRING)
 #include "PairingManager.h"
 #endif
@@ -583,6 +584,8 @@ void QGCApplication::_initCommon()
     qmlRegisterType<ToolStripAction>                ("QGroundControl.Controls",             1, 0, "ToolStripAction");
     qmlRegisterType<ToolStripActionList>            ("QGroundControl.Controls",             1, 0, "ToolStripActionList");
 
+// This is for the module of ScopeCamera
+    qmlRegisterType<ScopeCamera>            ("ScopeCamera",             1, 0, "ScopeCamera");
 #ifndef __mobile__
 #ifndef NO_SERIAL_LINK
     qmlRegisterType<FirmwareUpgradeController>      (kQGCControllers,                       1, 0, "FirmwareUpgradeController");

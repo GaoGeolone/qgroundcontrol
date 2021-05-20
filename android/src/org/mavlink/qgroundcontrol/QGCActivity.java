@@ -373,9 +373,22 @@ public class QGCActivity extends QtActivity
                 deviceInfo = deviceInfo + "Cp2102:";
             } else if (driver instanceof ProlificSerialDriver) {
                 deviceInfo = deviceInfo + "Prolific:";
-            } else {
+            } else if (driver instanceof Ch34xSerialDriver) {
+                deviceInfo = deviceInfo + "Ch34x:";
+            }else {
                 deviceInfo = deviceInfo + "Unknown:";
             }
+//            if (driver instanceof FtdiSerialDriver) {
+//                deviceInfo = deviceInfo + "FTDI:";
+//            } else if (driver instanceof CdcAcmSerialDriver) {
+//                deviceInfo = deviceInfo + "Cdc Acm:";
+//            } else if (driver instanceof Cp2102SerialDriver) {
+//                deviceInfo = deviceInfo + "Cp2102:";
+//            } else if (driver instanceof ProlificSerialDriver) {
+//                deviceInfo = deviceInfo + "Prolific:";
+//            } else {
+//                deviceInfo = deviceInfo + "Unknown:";
+//            }
 
             deviceInfo = deviceInfo + Integer.toString(device.getProductId()) + ":";
             deviceInfo = deviceInfo + Integer.toString(device.getVendorId()) + ":";

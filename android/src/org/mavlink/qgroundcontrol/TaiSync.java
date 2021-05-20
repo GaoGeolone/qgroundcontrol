@@ -63,7 +63,7 @@ public class TaiSync
 
     public void open(ParcelFileDescriptor parcelFileDescriptor) throws IOException
     {
-//        Log.i("QGC_TaiSync", "Open");
+        Log.i("QGC_TaiSync", "Open");//
 
         synchronized (runLock) {
             if (running) {
@@ -220,7 +220,7 @@ public class TaiSync
 
         byte[] lA = new byte[4];
         int len = HEADER_SIZE + dataLen;
-        // Log.i("QGC_TaiSync", "Sending to " + dataPort + " length = " + len);
+         Log.i("QGC_TaiSync", "Sending to " + dataPort + " length = " + len);//
         byte[] buffer = new byte[len];
 
         for (int i = 3; i >= 0; i--) {

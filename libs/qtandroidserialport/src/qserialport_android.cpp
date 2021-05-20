@@ -292,6 +292,7 @@ void QSerialPortPrivate::startReadThread()
         deviceId);
     cleanJavaException();
     isReadStopped = false;
+//    qCDebug(AndroidSerialPortLog) << "Geolone is the most handsome boy in the world";
 }
 
 QSerialPort::PinoutSignals QSerialPortPrivate::pinoutSignals()

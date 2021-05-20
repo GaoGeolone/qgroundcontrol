@@ -30,6 +30,7 @@ exists($$PWD/custom/android/AndroidManifest.xml) {
 OTHER_FILES += \
     $$PWD/android/res/xml/device_filter.xml \
     $$PWD/android/src/com/hoho/android/usbserial/driver/CdcAcmSerialDriver.java \
+    $$PWD/android/src/com/hoho/android/usbserial/driver/Ch34xSerialDriver.java \
     $$PWD/android/src/com/hoho/android/usbserial/driver/CommonUsbSerialDriver.java \
     $$PWD/android/src/com/hoho/android/usbserial/driver/Cp2102SerialDriver.java \
     $$PWD/android/src/com/hoho/android/usbserial/driver/FtdiSerialDriver.java \

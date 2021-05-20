@@ -349,6 +349,7 @@ bool QGCSerialPortInfo::isSystemPort(QSerialPortInfo* port)
 
         return true;
     }
+
     return false;
 }
 

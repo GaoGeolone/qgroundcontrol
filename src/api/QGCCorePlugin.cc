@@ -41,6 +41,8 @@ public:
 
     ~QGCCorePlugin_p()
     {
+        if(pScope)
+            delete pScope;
         if(pGeneral)
             delete pGeneral;
         if(pCommLinks)
@@ -74,7 +76,7 @@ public:
         if(defaultOptions)
             delete defaultOptions;
     }
-
+    QmlComponentInfo* pScope                    = nullptr;
     QmlComponentInfo* pGeneral                  = nullptr;
     QmlComponentInfo* pCommLinks                = nullptr;
     QmlComponentInfo* pOfflineMaps              = nullptr;
@@ -99,6 +101,7 @@ public:
     QGCOptions*         defaultOptions          = nullptr;
     QVariantList        settingsList;
     QVariantList        analyzeList;
+    QVariantList        scopeList;
 
     QmlObjectListModel _emptyCustomMapItems;
 };
@@ -185,6 +188,25 @@ QVariantList &QGCCorePlugin::settingsPages()
 #endif
     }
     return _p->settingsList;
+}
+
+//Geo: Add var for ScopeCamera
+QVariantList &QGCCorePlugin::scopePages()
+{
+    if(!_p->pScope) {
+        _p->pScope = new QmlComponentInfo(tr("Camera"),
+                                            QUrl::fromUserInput("qrc:/qml/CameraOnAndroid.qml"),
+                                            QUrl::fromUserInput("qrc:/res/gear-white.svg"));
+        _p->scopeList.append(QVariant::fromValue(reinterpret_cast<QmlComponentInfo*>(_p->pScope)));
+        _p->pCommLinks = new QmlComponentInfo(tr("ScopeData"),
+                                              QUrl::fromUserInput("qrc:/qml/LinkSettings.qml"),
+                                              QUrl::fromUserInput("qrc:/res/waves.svg"));
+        _p->scopeList.append(QVariant::fromValue(reinterpret_cast<QmlComponentInfo*>(_p->pCommLinks)));
+        _p->pConsole = new QmlComponentInfo(tr("Debug"),
+                                            QUrl::fromUserInput("qrc:/qml/QGroundControl/Controls/AppMessages.qml"));
+        _p->scopeList.append(QVariant::fromValue(reinterpret_cast<QmlComponentInfo*>(_p->pConsole)));
+    }
+    return _p->scopeList;
 }
 
 QVariantList& QGCCorePlugin::analyzePages()

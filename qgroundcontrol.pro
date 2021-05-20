@@ -251,7 +251,9 @@ QT += \
     widgets \
     xml \
     texttospeech \
-    core-private
+    core-private \
+    multimedia \
+    sensors
 
 # Multimedia only used if QVC is enabled
 !contains (DEFINES, QGC_DISABLE_UVC) {
@@ -425,6 +427,7 @@ contains (DEFINES, QGC_ENABLE_PAIRING) {
 
 HEADERS += \
     src/QmlControls/QmlUnitsConversion.h \
+    src/ScopeCamera.h \
     src/Vehicle/VehicleEscStatusFactGroup.h \
     src/api/QGCCorePlugin.h \
     src/api/QGCOptions.h \
@@ -438,6 +441,7 @@ contains (DEFINES, QGC_ENABLE_PAIRING) {
 }
 
 SOURCES += \
+    src/ScopeCamera.cc \
     src/Vehicle/VehicleEscStatusFactGroup.cc \
     src/api/QGCCorePlugin.cc \
     src/api/QGCOptions.cc \
@@ -1435,4 +1439,5 @@ contains (CONFIG, QGC_DISABLE_INSTALLER_SETUP) {
 }
 
 DISTFILES += \
+    android/src/com/hoho/android/usbserial/driver/Ch34SerialDriver.java \
     src/QmlControls/QGroundControl/Specific/qmldir

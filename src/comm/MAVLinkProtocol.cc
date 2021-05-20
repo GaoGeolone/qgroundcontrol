@@ -202,8 +202,9 @@ void MAVLinkProtocol::receiveBytes(LinkInterface* link, QByteArray b)
     }
 
     uint8_t mavlinkChannel = link->mavlinkChannel();
-
+//    qDebug() << "Geolone: QByteArray"<< b.toHex();
     for (int position = 0; position < b.size(); position++) {
+//        qDebug() << "Geolone: "<<position<<"with size of"<<b.size()<<"char:"<<static_cast<uint8_t>(b[position]);
         if (mavlink_parse_char(mavlinkChannel, static_cast<uint8_t>(b[position]), &_message, &_status)) {
             // Got a valid message
             if (!link->decodedFirstMavlinkPacket()) {
@@ -216,7 +217,7 @@ void MAVLinkProtocol::receiveBytes(LinkInterface* link, QByteArray b)
                     setVersion(200);
                 }
             }
-
+//            qDebug() << "Geolone: _message.payload"<< _message.payload64;
             //-----------------------------------------------------------------
             // MAVLink Status
             uint8_t lastSeq = lastIndex[_message.sysid][_message.compid];
@@ -255,7 +256,7 @@ void MAVLinkProtocol::receiveBytes(LinkInterface* link, QByteArray b)
             receiveLossPercent = (receiveLossPercent * 0.5f) + (runningLossPercent[mavlinkChannel] * 0.5f);
             runningLossPercent[mavlinkChannel] = receiveLossPercent;
 
-            //qDebug() << foo << _message.seq << expectedSeq << lastSeq << totalLossCounter[mavlinkChannel] << totalReceiveCounter[mavlinkChannel] << totalSentCounter[mavlinkChannel] << "(" << _message.sysid << _message.compid << ")";
+//            qDebug() << foo << _message.seq << expectedSeq << lastSeq << totalLossCounter[mavlinkChannel] << totalReceiveCounter[mavlinkChannel] << totalSentCounter[mavlinkChannel] << "(" << _message.sysid << _message.compid << ")";
 
             //-----------------------------------------------------------------
             // MAVLink forwarding
@@ -272,6 +273,7 @@ void MAVLinkProtocol::receiveBytes(LinkInterface* link, QByteArray b)
 
             //-----------------------------------------------------------------
             // Log data
+//            qDebug() << "Geolone: _logSuspendError"<<_logSuspendError<<"with size of"<<b.size();
             if (!_logSuspendError && !_logSuspendReplay && _tempLogFile.isOpen()) {
                 uint8_t buf[MAVLINK_MAX_PACKET_LEN+sizeof(quint64)];
 

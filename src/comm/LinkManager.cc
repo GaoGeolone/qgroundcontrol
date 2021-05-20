@@ -104,7 +104,7 @@ void LinkManager::createConnectedLink(LinkConfiguration* config)
 bool LinkManager::createConnectedLink(SharedLinkConfigurationPtr& config, bool isPX4Flow)
 {
     LinkInterface* link = nullptr;
-
+    qWarning() << "Geolone:LinkManager.cc:107"<<config->type();
     switch(config->type()) {
 #ifndef NO_SERIAL_LINK
     case LinkConfiguration::TypeSerial:
@@ -459,6 +459,7 @@ void LinkManager::_updateAutoConnectLinks(void)
     // Android builds only support a single serial connection. Repeatedly calling availablePorts after that one serial
     // port is connected leaks file handles due to a bug somewhere in android serial code. In order to work around that
     // bug after we connect the first serial port we stop probing for additional ports.
+//    qDebug() << "Geolone::linkmanager.cc:462";
     if (!_isSerialPortConnected()) {
         portList = QGCSerialPortInfo::availablePorts();
     }
@@ -511,12 +512,15 @@ void LinkManager::_updateAutoConnectLinks(void)
         } else
 #endif
 #endif
+//            qDebug() << "Geolone::linkmanager.cc:515"<<portInfo.getBoardInfo(boardType, boardName);
             if (portInfo.getBoardInfo(boardType, boardName)) {
+//                qDebug() << "Geolone::linkmanager.cc:517"<<portInfo.isBootloader();
                 if (portInfo.isBootloader()) {
                     // Don't connect to bootloader
                     qCDebug(LinkManagerLog) << "Waiting for bootloader to finish" << portInfo.systemLocation();
                     continue;
                 }
+                qDebug() << "Geolone::linkmanager.cc:523"<<(_portAlreadyConnected(portInfo.systemLocation()) || _autoConnectRTKPort == portInfo.systemLocation());
                 if (_portAlreadyConnected(portInfo.systemLocation()) || _autoConnectRTKPort == portInfo.systemLocation()) {
                     qCDebug(LinkManagerVerboseLog) << "Skipping existing autoconnect" << portInfo.systemLocation();
                 } else if (!_autoconnectPortWaitList.contains(portInfo.systemLocation())) {
@@ -876,11 +880,14 @@ LogReplayLink* LinkManager::startLogReplay(const QString& logFile)
 
 bool LinkManager::_isSerialPortConnected(void)
 {
+//    int i = 0;
+//    qWarning(LinkManagerLog)<< "Geolone test i="<< i;
     for (SharedLinkInterfacePtr link: _rgLinks) {
         if (qobject_cast<SerialLink*>(link.get())) {
             return true;
         }
+//        i++;
     }
-
+//    qWarning(LinkManagerLog)<< "Geolone test i="<< i;
     return false;
 }
